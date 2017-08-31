@@ -4,11 +4,11 @@
 ​SMS_RELAY_controller_light.ino v 0.3/20160205 - c-uGSM shield v 1.13 /d-u3G shield 1.13 SOFTAWARE EXAMPLE
 COPYRIGHT (c) 2015-2016 Dragos Iosub / R&D Software Solutions srl
 
-You are legaly entitled to use this SOFTWARE ONLY IN CONJUNCTION WITH c-uGSM or d-u3G DEVICES USAGE. Modifications, derivates and redistribution 
-of this software must include unmodified this COPYRIGHT NOTICE. You can redistribute this SOFTWARE and/or modify it under the terms 
+You are legaly entitled to use this SOFTWARE ONLY IN CONJUNCTION WITH c-uGSM or d-u3G DEVICES USAGE. Modifications, derivates and redistribution
+of this software must include unmodified this COPYRIGHT NOTICE. You can redistribute this SOFTWARE and/or modify it under the terms
 of this COPYRIGHT NOTICE. Any other usage may be permited only after written notice of Dragos Iosub / R&D Software Solutions srl.
 
-This SOFTWARE is distributed is provide "AS IS" in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+This SOFTWARE is distributed is provide "AS IS" in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
 warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 Dragos Iosub, Bucharest 2016.
@@ -35,17 +35,17 @@ static char AndrewNumber[16] = "+18319053945";      //destination number
 
 #if defined(ExtraIO)
   #define OutPort4   12               //Arduino digital port used to drive Strobe Board micro
-  #define OutPort5   13               //Arduino digital port used to drive Strobe Board micro
+  #define InPort5   13               	//Arduino digital port used to drive Strobe Board micro
 #endif
 
 #if defined(ButtonArray)
-  #define ButtonGnd  4               
+  #define ButtonGnd  4
   #define Button1    A0
   #define Button2    A1
   #define Button3    A2
   #define Button4    A3
 #endif
- 
+
 
 static char nunderstand[95] = "BAD COMMAND! digital0,digital1,rel0,rel1,rel2,rel3 >> 1 ->activate relay, 0 ->release relay";
 static char executed[40] = " cmd executed";
@@ -53,15 +53,15 @@ static char boot[13] = "BOOT EVENT ";
 
 
 #if defined(du3GShieldUsage)							//for d-u3G hardware only!
-	//#define HARDWARERELEASE	1						//un-comment this only if module SN bw. 031000 032999 and comment the next one 
+	//#define HARDWARERELEASE	1						//un-comment this only if module SN bw. 031000 032999 and comment the next one
 	#define HARDWARERELEASE 	2					//default mode! SN > 033000
 #endif
 
 /*#####NO PARAMS TO CHANGE BELLOW#####*/
 
 #define powerPIN         7		//Arduino Digital pin used to power up / power down the modem
-#define resetPIN         6		//Arduino Digital pin used to reset the modem 
-#define statusPIN        5		//Arduino Digital pin used to monitor if modem is powered 
+#define resetPIN         6		//Arduino Digital pin used to reset the modem
+#define statusPIN        5		//Arduino Digital pin used to monitor if modem is powered
 
 //int supervisorMask = 1;			//mask monitoring 1 - monitor enabled, 0 - monitor disabled
 
@@ -90,7 +90,7 @@ char ch;
 char buffd[BUFFDSIZE];
 char readBuffer[162];
 //static char mBuffer[162];
-int state=0, i=0, powerState = 0; 
+int state=0, i=0, powerState = 0;
 
 //unsigned long startTime = 0;
 
@@ -100,7 +100,7 @@ void procRespose(char* msg){
 	Serial.println(readBuffer);
 	Serial.flush();
 	delay(150);
-	sendSMS(phoneNumber, readBuffer);			//confirm command 
+	sendSMS(phoneNumber, readBuffer);			//confirm command
 	delay(100);
 }
 
@@ -109,19 +109,19 @@ void setup(){
 
 	pinMode(OutPort0, OUTPUT);				//configure the UNO Dxx as output
 	pinMode(OutPort1, OUTPUT);				//configure the UNO Dxx as output
-	digitalWrite(OutPort0, 0);
-	digitalWrite(OutPort1, 0);
+	digitalWrite(OutPort0, LOW);
+	digitalWrite(OutPort1, LOW);
 	#if defined(FourRelays)
 		pinMode(OutPort2, OUTPUT);				//configure the UNO Dxx as output
 		pinMode(OutPort3, OUTPUT);				//configure the UNO Dxx as output
-		digitalWrite(OutPort2, 0);
-		digitalWrite(OutPort3, 0);
+		digitalWrite(OutPort2, LOW);
+		digitalWrite(OutPort3, LOW);
 	#endif
   #if defined(ExtraIO)
     pinMode(OutPort4, OUTPUT);        //configure the UNO Dxx as output
-    pinMode(OutPort5, OUTPUT);        //configure the UNO Dxx as output
-    digitalWrite(OutPort4, 1);
-    digitalWrite(OutPort5, 1);
+    pinMode(InPort5, INPUT);        //configure the UNO Dxx as output
+    digitalWrite(OutPort4, HIGH);
+    digitalWrite(InPort5, INPUT_PULLUP);
   #endif
 
   #if defined(ButtonArray)
@@ -137,8 +137,6 @@ void setup(){
     digitalWrite(Button4, INPUT_PULLUP);
   #endif
 
-  
-
 	agsmSerial.begin(9600);					//next, modem setup
 	clearagsmSerial();
 	clearSerial();
@@ -153,33 +151,32 @@ void setup(){
 	Serial.println(F("wait until c-uGSM/d-u3G is ready"));
   Serial.println(F("Return Phone Number:"));
   Serial.println(phoneNumber);
-  Serial.println(F("Phone Number Printed."));
 	Serial.flush();
 
 	powerOnModem();
-  
+
 	clearBUFFD();
 	while(strlen(buffd)<1){
 		getIMEI();
 		delay(500);
 	}
 
-	ready4SMS = 0; 
+	ready4SMS = 0;
 	ready4Voice = 0;
 
 	setupMODEMforSMSusage();
 
-	Serial.println(F("modem ready.. let's proceed"));
+	Serial.println(F("modem ready.. let's proceed and blink"));
 	Serial.flush();
-	delay(100);
+	digitalWrite(OutPort2, HIGH);
+	delay(200);
+	digitalWrite(OutPort2, LOW);
 
 	procRespose((char*)boot);
 
 }
 
 int checkSMSAuthNo(int SMSindex){
-  Serial.println(F("A Look at buffd throughout function checkSMSAuthNo..."));
-  Serial.println(buffd);
 	int ret = 0, isPhNum = 0, i = 0, n = 0;
   clearBUFFD();
 	if(ready4SMS != 1) setupMODEMforSMSusage();
@@ -219,7 +216,7 @@ int checkSMSAuthNo(int SMSindex){
           n++;
         }
       }
-      
+
     }
     Serial.println(F("New Phone Number detected!"));
     Serial.println(phoneNumber);
@@ -235,7 +232,7 @@ int checkSMSAuthNo(int SMSindex){
   }
 
 	clearBUFFD();
-	clearagsmSerial();	
+	clearagsmSerial();
 	return ret;
   //return 1;     //Disable check, let any message thru
 }
@@ -247,18 +244,21 @@ int buttonCheckHandler() {
   ButtonFlag = (analogRead(Button2) < 500) ? 1 : ButtonFlag;
   ButtonFlag = (analogRead(Button3) < 500) ? 4 : ButtonFlag;
   ButtonFlag = (analogRead(Button4) < 500) ? 3 : ButtonFlag;
+	ButtonFlag = (digitalRead(InPort5) == LOW) ? 5 : ButtonFlag;
   switch(ButtonFlag) {
     case 0:
       break;
     case 1:                 //Button 1 Turns ON/OFF Normal Light
       if(digitalRead(OutPort2) == HIGH) {
         digitalWrite(OutPort2,LOW);
+				//procRespose("Your Life Lite is now OFF. Text ON to turn on.");
       }
       else{
         digitalWrite(OutPort0,LOW);
         digitalWrite(OutPort1,LOW);
         digitalWrite(OutPort3,LOW);
         digitalWrite(OutPort2,HIGH);
+				//procRespose("Your Life Lite is now ON. Text OFF to turn off.");
       }
       Serial.println(F("ON/OFF Light activated by Button!"));
       delay(250);
@@ -266,28 +266,35 @@ int buttonCheckHandler() {
     case 2:                 //Button 2 Turns ON/OFF Pizza Light
       if(digitalRead(OutPort3) == HIGH) {
         digitalWrite(OutPort3,LOW);
+				//procRespose("Your Life Lite is now OFF. Text ON to turn on.");
       }
       else{
         digitalWrite(OutPort0,LOW);
         digitalWrite(OutPort1,LOW);
         digitalWrite(OutPort2,LOW);
         digitalWrite(OutPort3,HIGH);
+				//procRespose("Your Life Lite is now on PIZZA mode. Text OFF to turn off.");
       }
       Serial.println(F("Pizza Light activated by Button!"));
-      delay(250);  
+      delay(250);
       break;
     case 3:                 //Button 3 Turns ON/OFF Strobe Light
       if(digitalRead(OutPort1) == HIGH) {
         digitalWrite(OutPort1,LOW);
+				//procRespose("Your Life Lite is now OFF. Text ON to turn on.");
       }
       else{
         digitalWrite(OutPort0,LOW);
         digitalWrite(OutPort2,LOW);
         digitalWrite(OutPort3,LOW);
         digitalWrite(OutPort1,HIGH);
+				delay(250);
+				digitalWrite(OutPort4,LOW);
+				//procRespose("Your Emergency Life Lite is now ON. Text OFF to turn off. This does not alert emergency services. If you have an emergency call 9-1-1.");
       }
       Serial.println(F("Strobe Light activated by Button!"));
-      delay(250);  
+      delay(250);
+			digitalWrite(OutPort4,HIGH);
       break;
     case 4:
       digitalWrite(OutPort0,LOW);
@@ -295,10 +302,15 @@ int buttonCheckHandler() {
       digitalWrite(OutPort2,LOW);
       digitalWrite(OutPort3,LOW);
       Serial.println(F("All Lights Deactivated by Button!"));
-      delay(250);  
+			//procRespose("Your Life Lite is now OFF. Text ON to turn on.");
+      delay(250);
       break;
+		case 5:
+			procRespose("Gate Open Detected!");
+			delay(250);
+			break;
     default:
-      break;      
+      break;
   }
 }
 
@@ -306,12 +318,13 @@ void loop(){
 	#if defined(ButtonArray)
   	buttonCheckHandler();
   #endif
-  
+
 	//process SMS commands - start
 	listSMS();																//find the last used SMS location
 	clearagsmSerial();
 	int cnt;
 	cnt = noSMS;
+	int validMsgFlag = 0;
 	while (cnt>0){
 		if(checkSMSAuthNo(cnt)<1){
 			deleteSMS(cnt);
@@ -319,7 +332,7 @@ void loop(){
 			clearBUFFD();
 		}
 		else{
-			readSMS(cnt);														//the SMS content will be returned in buffd 
+			readSMS(cnt);														//the SMS content will be returned in buffd
 			Serial.print(F("SMS content: "));Serial.flush();delay(50);
 			Serial.println(buffd);Serial.flush();delay(50);
 		}
@@ -330,44 +343,59 @@ void loop(){
 		delay(50);
 
 		if(strlen(buffd) > 0){												//non empty SMS
-			int OutputVal0 = -1;
-			int OutputVal1 = -1;
-			int OutputVal2 = -1;
-			int OutputVal3 = -1;
-      int OutputVal4 = -1;
-      int OutputVal5 = -1;
-			sscanf(buffd, "%i,%i,%i,%i,%i,%i", &OutputVal0, &OutputVal1, &OutputVal2, &OutputVal3, &OutputVal4, &OutputVal5);
-			clearBUFFD();
-			sprintf(buffd, "%i,%i,%i,%i,%i,%i >> %s", OutputVal0, OutputVal1, OutputVal2, OutputVal3, OutputVal4, OutputVal5, (char*)executed);
-			Serial.println(buffd);
-      #if defined(ExtraIO)
-        if(OutputVal0<0 || OutputVal1<0 || OutputVal2<0 || OutputVal3<0 || OutputVal4<0 || OutputVal5<0){//check parse message success
-      //#if defined(FourRelays)
-			#else
-				if(OutputVal0<0 || OutputVal1<0){//check parse message success
-			#endif
-				procRespose((char*)nunderstand);
-				//Serial.println("error");
+			if(strstr(buffd,"pizza") || strstr(buffd,"Pizza") || strstr(buffd,"PIZZA")){
+				digitalWrite(OutPort0, LOW);
+				digitalWrite(OutPort1, LOW);
+				digitalWrite(OutPort2, LOW);
+				digitalWrite(OutPort3, HIGH);
+				digitalWrite(OutPort4, HIGH);
+				procRespose("Your Life Lite is now on PIZZA mode. Text OFF to turn off.");
+				Serial.println(F("Your Life Lite is now on PIZZA mode. Text OFF to turn off."));
+				clearBUFFD();
+				validMsgFlag = 1;
 			}
-			else{
-				digitalWrite(OutPort0, OutputVal0);
-				digitalWrite(OutPort1, OutputVal1);
-				#if defined(FourRelays)
-					digitalWrite(OutPort2, OutputVal2);
-					digitalWrite(OutPort3, OutputVal3);
-				#endif
-        #if defined(ExtraIO)
-          delay(250);
-          digitalWrite(OutPort4, OutputVal4);
-          digitalWrite(OutPort5, OutputVal5);
-          delay(250);
-          digitalWrite(OutPort4, 1);
-          digitalWrite(OutPort5, 1);
-        #endif
-				procRespose(buffd);
-				//Serial.println("fine");
+			if(strstr(buffd,"on") || strstr(buffd,"On") || strstr(buffd,"ON")){
+				digitalWrite(OutPort0, LOW);
+				digitalWrite(OutPort1, LOW);
+				digitalWrite(OutPort2, HIGH);
+				digitalWrite(OutPort3, LOW);
+				digitalWrite(OutPort4, HIGH);
+				procRespose("Your Life Lite is now ON. Text OFF to turn off.");
+				Serial.println(F("Your Life Lite is now ON. Text OFF to turn off."));
+				clearBUFFD();
+				validMsgFlag = 1;
 			}
-
+			if(strstr(buffd,"help") || strstr(buffd,"Help") || strstr(buffd,"HELP")){
+				digitalWrite(OutPort0, LOW);
+				digitalWrite(OutPort1, HIGH);
+				digitalWrite(OutPort2, LOW);
+				digitalWrite(OutPort3, LOW);
+				digitalWrite(OutPort4, HIGH);
+				delay(250);
+				digitalWrite(OutPort4, LOW);
+				delay(250);
+				digitalWrite(OutPort4, HIGH);
+				procRespose("Your Emergency Life Lite is now ON. Text OFF to turn off.");
+				Serial.println(F("Your Emergency Life Lite is now ON. Text OFF to turn off. This does not alert emergency services. If you have an emergency call 9-1-1."));
+				clearBUFFD();
+				validMsgFlag = 1;
+			}
+			if(strstr(buffd,"off") || strstr(buffd,"Off") || strstr(buffd,"OFF")){
+				digitalWrite(OutPort0, LOW);
+				digitalWrite(OutPort1, LOW);
+				digitalWrite(OutPort2, LOW);
+				digitalWrite(OutPort3, LOW);
+				digitalWrite(OutPort4, HIGH);
+				procRespose("Your Life Lite is now OFF. Text ON to turn on.");
+				Serial.println(F("Your Life Lite is now OFF. Text ON to turn on."));
+				clearBUFFD();
+				validMsgFlag = 1;
+			}
+			if(!validMsgFlag){
+				procRespose("INSTRUCTIONS: Text ON to turn on light.");
+				Serial.println(F("INSTRUCTIONS: Text ON to turn on light. Text HELP to turn on emergency light. Text OFF to turn off light. Text SUPPORT to get these instructions again."));
+				clearBUFFD();
+			}
 			deleteSMS(cnt);													//free the SMS location
 		}
 		//here process SMS the content - end

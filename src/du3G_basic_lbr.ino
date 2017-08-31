@@ -4,18 +4,18 @@
 du3G_basic_lbr.ino v 0.97/20151118 - d-u3G 1.13 LIBRARY SUPPORT
 COPYRIGHT (c) 2015 Dragos Iosub / R&D Software Solutions srl
 
-You are legaly entitled to use this SOFTWARE ONLY IN CONJUNCTION WITH d-u3G DEVICES USAGE. Modifications, derivates and redistribution 
-of this software must include unmodified this COPYRIGHT NOTICE. You can redistribute this SOFTWARE and/or modify it under the terms 
+You are legaly entitled to use this SOFTWARE ONLY IN CONJUNCTION WITH d-u3G DEVICES USAGE. Modifications, derivates and redistribution
+of this software must include unmodified this COPYRIGHT NOTICE. You can redistribute this SOFTWARE and/or modify it under the terms
 of this COPYRIGHT NOTICE. Any other usage may be permited only after written notice of Dragos Iosub / R&D Software Solutions srl.
 
-This SOFTWARE is distributed is provide "AS IS" in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+This SOFTWARE is distributed is provide "AS IS" in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
 warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 Dragos Iosub, Bucharest 2015.
 http://itbrainpower.net
 ***************************************************************************************
 SOFTWARE:
-This file MUST be present, toghether with other files, inside a folder named 
+This file MUST be present, toghether with other files, inside a folder named
 like your main sketch!
 ***************************************************************************************
 HARDWARE:
@@ -23,20 +23,20 @@ Read the readme file(s) inside the arhive/folder.
 ***************************************************************************************
 */
 /*
-In order to make your Arduino serial communication reliable (especially for Arduino Uno) with a-gsm shield, you must edit: 
-C:\Program Files\Arduino\libraries\SoftwareSerial\SoftwareSerial.h 
+In order to make your Arduino serial communication reliable (especially for Arduino Uno) with a-gsm shield, you must edit:
+C:\Program Files\Arduino\libraries\SoftwareSerial\SoftwareSerial.h
 
-comment the line 42 
-#define _SS_MAX_RX_BUFF 64 
+comment the line 42
+#define _SS_MAX_RX_BUFF 64
 
-this, will look after that like: 
+this, will look after that like:
 //#define _SS_MAX_RX_BUFF 64
 
-and add bellow the next line: 
-  
+and add bellow the next line:
+
 #define _SS_MAX_RX_BUFF 128
 
-You just increased the RX buffer size for UNO and other "snails". 
+You just increased the RX buffer size for UNO and other "snails".
 
 Now you can compile and upload your code supporting highier buffered serial input data.
 */
@@ -59,7 +59,7 @@ int getSignalStatus(){
 	int res = 0;
 	char tmpChar[20];//40
 	char* pch;
-	clearBUFFD();		
+	clearBUFFD();
 	memset(tmpChar,0x00,sizeof(tmpChar));
 	sprintf(i, ",\r");
 	//res = sendATcommand((char*)F("AT+CSQ"),(char*)F("OK"),(char*)F("ERROR"),10);
@@ -87,7 +87,7 @@ int getSignalStatus(){
 					h=5;
 				}else if(res>27&&res<31){//-59dBm -> -53dBm
 					h=6;
-				}else if(res>=31){//>-53dBm 
+				}else if(res>=31){//>-53dBm
 					h=7;
 				}
 
@@ -120,7 +120,7 @@ void clearBUFFD(){//just clear the data buffer
 
 /*send command -cmd to the modem, waiting Delay_mS msecs after that*/
 size_t aGsmCMD(char* cmd, int Delay_mS){
-    size_t retv;  
+    size_t retv;
     retv = agsmSerial.println(cmd);
     delay(Delay_mS);
     return retv;
@@ -128,7 +128,7 @@ size_t aGsmCMD(char* cmd, int Delay_mS){
 
 /*send string -str to the modem, NOT ADDING \r\n to the line end*/
 size_t aGsmWRITE(char* str){
-    size_t retv;  
+    size_t retv;
     retv = agsmSerial.print(str);
     return retv;
 }
@@ -142,10 +142,10 @@ inline char aGsmREAD(void){
 
 /*
 Receive data from serial until event:
-SUCCESS string - 1'st argument 
-FAILURE string - second argument 
+SUCCESS string - 1'st argument
+FAILURE string - second argument
 TIMEOUT - third argument in secconds!
-rreturn: int 
+rreturn: int
   -2 buffd BUFFER OVERFLOW (avoided) //New feature, added in this version
   -1 TIMEOUT
   0  FAILURE
@@ -160,9 +160,9 @@ int recUARTDATA( char* ok, char* err, int to){
 	int i=0;
 	unsigned long startTime;
 	clearBUFFD();
-	startTime = millis();	
+	startTime = millis();
 	//delay(10);
-	while(run){	
+	while(run){
 		if(strstr(buffd,ok)) {
 			delay(200);
 			#if defined(atDebug)
@@ -195,32 +195,32 @@ int recUARTDATA( char* ok, char* err, int to){
 
 		while(TXavailable()){
 			u8_c = aGsmREAD();
-                        if(i<BUFFDSIZE-1){ 
-                        	buffd[i]=u8_c;
-                        }else{
-							#if defined(atDebug)
-								Serial.println(F("bufover"));
-							#endif
-                        	clearagsmSerial();
-                          	return -2;//bufferoverflow
-                        }
-                        i++;
+      if(i<BUFFDSIZE-1){
+    		buffd[i]=u8_c;
+      }else{
+				#if defined(atDebug)
+					Serial.println(F("bufover"));
+				#endif
+      	clearagsmSerial();
+      	return -2;//bufferoverflow
+      }
+    	i++;
 		}
 	}
 	return(res);
 }
- 
+
 /*
 send AT command, looking for SUCCES STRING(1'st) or FAILURE STRING(second), and TIMEOUT(third)
 return 1 for succes, 2 for failure, -1 for timeout and
   -2 buffd BUFFER OVERFLOW (avoided) //New feature, added in this version
 modem response is loaded in buffd
 Please see default paramethers definition in ags_basic_lbr.h
-*/ 
+*/
 int sendATcommand(char* outstr, char* ok, char* err, int to){
 	int res=0;
 	clearagsmSerial();
-	clearBUFFD();	
+	clearBUFFD();
 	#if defined(atDebug)
 		Serial.println(outstr);
   #endif
@@ -290,8 +290,8 @@ int parseResponce(char* ok, char* head, char* retChar, char* separator , int ind
 	if (pch1 == 0) return -1;
 	pch0 = strstr(buffd, head);
 	pch0 = pch0+strlen(head);
-	
-	if(pch0[2] == 0x0A) 
+
+	if(pch0[2] == 0x0A)
 		//strncpy(tmpChar, pch0+3, pch1 - pch0 - strlen(ok) - 5);
 		strncpy(readBuffer, pch0+3, pch1 - pch0 - strlen(ok) - 5);
 	else
@@ -318,7 +318,7 @@ int parseResponce(char* ok, char* head, char* retChar, char* separator , int ind
 
 /*
 	read voltage...returned in buffd, value in mV
-	
+
 */
 void getVoltage(){
 	char tmpChar[20];
@@ -330,7 +330,7 @@ void getVoltage(){
 		ch = aGsmREAD();
 		buffd[i] = ch;
 		i++;
-	}  
+	}
 	memset(tmpChar,0x00, sizeof(tmpChar));
 	parseResponce("OK", "+CBC: ", tmpChar, ",", 2);
 	clearBUFFD();
@@ -362,7 +362,7 @@ void getIMSI(){
 		ch = aGsmREAD();
 		buffd[i] = ch;
 		i++;
-	} */ 
+	} */
 	parseResponce("OK", "AT+CIMI", tmpChar, "", 2);
 	clearBUFFD();
 	strcpy(buffd, tmpChar);//load value into buffd
@@ -414,14 +414,14 @@ int dial(char* destinationNO){
     	0    not register
         2
         3
-        
+
 */
 int registration(int type){
 	char tmpChar[20];//40
 	int res;
-	if (type==1) res = fATcmd(F("+CREG?")); 
-	else res = fATcmd(F("+CGREG?")); 
-	
+	if (type==1) res = fATcmd(F("+CREG?"));
+	else res = fATcmd(F("+CGREG?"));
+
 	if(res==1){
 		memset(tmpChar,0x00, sizeof(tmpChar));
 		if (type==1) res = parseResponce("OK", "+CREG:", tmpChar, ",", 1);
@@ -452,7 +452,7 @@ char* FF(const __FlashStringHelper *cmd){
     n ++;//= write(c);
   }
   cmdl[n++] = 0;
-  return cmdl;  
+  return cmdl;
 }
 
 
@@ -463,20 +463,20 @@ void setupMODEMforSMSusage(){
 	int res;
   int i=0,n=0;
 	res = 0;
-  
-	while (res!=1){//wait 
+
+	while (res!=1){//wait
 		res = fATcmd(F("+CPBS?"));    //Check selected memory storage. Not supported w/ AT&T
 		delay(500);
 	}
 	//set SIMM memory as active
 	fATcmd(F("+CPBS=\"SM\""));      //Select "SIM Phonebook" as memory location. Not supported w/ AT&T
 	//is MODEM ready for SMS?
-	res = 0; 
-	while (res!=1){//wait 
+	res = 0;
+	while (res!=1){//wait
 		res = fATcmd(F("+CPBS?"));    //Check that memory location instruction took. Not supported w/ AT&T
 		delay(500);
-	}				
-	//set SMS mode TEXT		
+	}
+	//set SMS mode TEXT
 	res = fATcmd(F("+CMGF=1"));             //Select "Text Mode" for SMS Message format
 	res = fATcmd(F("+CSMP=17,167,0,0"));    //d-u3G text mode params
 	res = fATcmd(F("+CSDH=1"));             //d-u3G set header to "visible"
@@ -496,28 +496,33 @@ void setupMODEMforSMSusage(){
   while (n == 0) if (buffd[i++] == 34) while (buffd[i + n] != 34){
         phoneNumber[n] = buffd[i + n]; //parse buffd for ph #
         n++;
+				if(n > 12){
+					Serial.println("Bad Number stored in SIM! Resetting to default...");
+					strcpy(phoneNumber,AndrewNumber);
+				}
         //Serial.println(phoneNumber[n]);
-      }
+  			}
+
   Serial.println(phoneNumber);
-  
+
 	delay(500);
-	clearagsmSerial();     
+	clearagsmSerial();
 }
 
 
 /*
 	just read one line(looks for LF char) and return the line loaded into buffd
 	see AGSM_DEFAULT_TIMEOUT_NO in ags_basic.h
-	returns: 
+	returns:
 		1 	LF found
-		-1	timeout 
+		-1	timeout
 */
 int readline(unsigned long timeout/* = AGSM_DEFAULT_TIMEOUT_NO*/){
 	int cnt=0;
 	char c;
 	int res=0;
 	unsigned long startTime;
-	startTime = millis();	
+	startTime = millis();
 	while(1){
 		if(TXavailable()){
 			c=agsmSerial.read();
@@ -537,11 +542,11 @@ int readline(unsigned long timeout/* = AGSM_DEFAULT_TIMEOUT_NO*/){
 
 /*just reset the modem - use it only if modem become freezed*/
 void resetMODEM(){
-	Serial.println(F("reset Modem")); 
+	Serial.println(F("reset Modem"));
 	delay(500);
-	digitalWrite(resetPIN, HIGH);//d-u3G    
-	delay(1000);                  
-	digitalWrite(resetPIN, LOW);//d-u3G    
+	digitalWrite(resetPIN, HIGH);//d-u3G
+	delay(1000);
+	digitalWrite(resetPIN, LOW);//d-u3G
 	powerState=1;
 	ready4SMS = 0;
 	ready4Voice = 0;
@@ -561,7 +566,7 @@ void powerOffModem(){
 	//if(digitalRead(statusPIN)){//d-u3G
 	if(getModemState()){
 		sprintf(tmp,"%c",0x1B);
-		aGsmCMD(tmp,20);  
+		aGsmCMD(tmp,20);
 		aGsmCMD("+++",20);//set proper modem reply mode, do not remove!
 		aGsmCMD("ATE1",20);//set proper modem reply mode, do not remove!
 		aGsmCMD("ATV1",20);//set proper modem reply mode, do not remove!
@@ -577,9 +582,9 @@ void powerOnModem(){
 		// not running
 		clearagsmSerial();delay(100);
 		Serial.println(F("switching on")); delay(500);
-		digitalWrite(powerPIN, HIGH);//d-u3G    
-		delay(1000);                  
-		digitalWrite(powerPIN, LOW);//d-u3G  
+		digitalWrite(powerPIN, HIGH);//d-u3G
+		delay(1000);
+		digitalWrite(powerPIN, LOW);//d-u3G
 		delay(8000);
 		powerState = 1;
 		state=1;
@@ -593,9 +598,9 @@ void powerOnModem(){
 
 void modemHWSetup(){
 	pinMode(resetPIN, OUTPUT);
-	digitalWrite(resetPIN, LOW);//d-u3G  
+	digitalWrite(resetPIN, LOW);//d-u3G
 	pinMode(powerPIN, OUTPUT);
-	digitalWrite(powerPIN, LOW);//d-u3G    
+	digitalWrite(powerPIN, LOW);//d-u3G
 	//pinMode(statusPIN, INPUT_PULLUP);
 	pinMode(statusPIN, INPUT);
 	delay(100);
@@ -604,7 +609,7 @@ void modemHWSetup(){
 /*just restart the modem*/
 void restartMODEM(){
 	clearagsmSerial();
-	delay(100); 
+	delay(100);
 	/*if(!digitalRead(statusPIN)){//d-u3G
 		Serial.println(F("powerOFF")); delay(500);
 		fATcmd(F("+QPOWD=1"));
@@ -614,17 +619,17 @@ void restartMODEM(){
 	powerOffModem();
 	powerOnModem();
 	/*
-	//if(!digitalRead(statusPIN)){//c-uGSM 
+	//if(!digitalRead(statusPIN)){//c-uGSM
 	//if(digitalRead(statusPIN)){//d-u3G
 	if(!digitalRead(statusPIN)){//d-u3G
 		// not running
 		clearagsmSerial();delay(100);
 		Serial.println(F("try restart")); delay(500);
-		//digitalWrite(powerPIN, LOW);//c-uGSM    
-		digitalWrite(powerPIN, HIGH);//d-u3G    
-		delay(1000);                  
-		//digitalWrite(powerPIN, HIGH);//c-uGSM  
-		digitalWrite(powerPIN, LOW);//d-u3G  
+		//digitalWrite(powerPIN, LOW);//c-uGSM
+		digitalWrite(powerPIN, HIGH);//d-u3G
+		delay(1000);
+		//digitalWrite(powerPIN, HIGH);//c-uGSM
+		digitalWrite(powerPIN, LOW);//d-u3G
 		delay(8000);
 		powerState = 1;
 		state=1;
@@ -637,20 +642,20 @@ void clearagsmSerial(){
 	while(TXavailable()){
 		ch = aGsmREAD();
 		delay(0.5);
-	} 
+	}
 	delay(100);
 	ch=0x00;
-} 
+}
 
 /*just flush remaining chars from serial (debug)*/
 void clearSerial(){
 	while(Serial.available()){
 		ch = Serial.read();
 		delay(0.5);
-	} 
+	}
 	delay(100);
 	ch=0x00;
-} 
+}
 
 
 
@@ -660,12 +665,12 @@ void setActiveSIM(int SIM){
 	if(SIM < 0 || SIM >1) //SIM can be 0(zero)- TOP SIM, or 1(one)- BOTTOM SIM
 		return;
 	int res;
-	res = fATcmd(F("+CFUN=0"),10);//shutdown GSM part of the modem 
+	res = fATcmd(F("+CFUN=0"),10);//shutdown GSM part of the modem
 	delay(1500);//just delay a while
 	agsmSerial.print("+QDSIM=");
 	agsmSerial.println(SIM);//execute chance SIM
 	delay(1500);//just delay a while
-	res = fATcmd(F("+CFUN=1"),10);//wakeup GSM part of the modem 
+	res = fATcmd(F("+CFUN=1"),10);//wakeup GSM part of the modem
 	delay(1500);//just delay a while
 	activeSIM = SIM;//load active SIM value
 }
@@ -674,12 +679,12 @@ void setActiveSIM(int SIM){
 /*
 void setupMODEMforDTMFSusage(){
 	int res;
-	res = 0; 
+	res = 0;
 	setupMODEMforSMSusage();
 
 	res = fATcmd(F("+QTONEDET=4,1,3,3,65536"));//some DTMF detection settings
-	res = fATcmd(F("+QSFR=7"));//use EFR 
-	res = fATcmd(F("+QTDMOD=1,0")); 
+	res = fATcmd(F("+QSFR=7"));//use EFR
+	res = fATcmd(F("+QTDMOD=1,0"));
 	#if !defined(FREESOMEFLASHMEM)
 		Serial.println(F("DTMF setup ready"));
 		Serial.flush();
@@ -695,10 +700,10 @@ void setupMODEMforDTMFRusage(){
 	setupMODEMforSMSusage();
 	enableAutoanswer(2);//enable Autoanswer at second RING
 	Serial.flush();
-	res = fATcmd(F("+QTONEDET=1"));//enable DTMF detection 
+	res = fATcmd(F("+QTONEDET=1"));//enable DTMF detection
 	#if !defined(FREESOMEFLASHMEM)
 		Serial.println(F("Autoanswer at second RING enabled"));
-		if(res==1) 
+		if(res==1)
 			Serial.println(F("DTMF detection enabled"));
 		Serial.flush();
 	#endif
@@ -712,9 +717,9 @@ void enableAutoanswer(int RingNo){
 	clearagsmSerial();
 	#if !defined(FREESOMEFLASHMEM)
 		Serial.print(F("Autoanswer "));
-		if(RingNo>0) 
+		if(RingNo>0)
 			Serial.println(F("enabled"));
-		else 
+		else
 			Serial.println(F("disabled"));
 	#endif
 }
@@ -729,7 +734,7 @@ void disableAutoanswer(){
 /*
 int getcallStatus()
 #detect if the voice call is CONNECTED
-#returns: 
+#returns:
 #0 Active   CONNECTED   BOTH
 #1 Held                 BOTH
 #2 Dialing (MO call)    OUTBOUND
@@ -740,7 +745,7 @@ int getcallStatus()
 int getcallStatus(){
 	int res=0;
 	char content [40];
-	res = fATcmd(F("+CLCC"));//CHECK DIAL STATUS ...RETURN +CLCC: 1,0,0,0,0,"dialed NO", 129 IF ACTIVE CALL 
+	res = fATcmd(F("+CLCC"));//CHECK DIAL STATUS ...RETURN +CLCC: 1,0,0,0,0,"dialed NO", 129 IF ACTIVE CALL
 	if(res==1){
 		memset (content,0x00, sizeof(content));
 		char * pch0;
@@ -771,7 +776,7 @@ int getcallStatus(){
 			//Serial.println("NO CONNECTION");
 			return -1;
 		}
-	} 
+	}
     //Serial.println("CMD ERROR");
 	return -2;
 }
@@ -790,7 +795,7 @@ int getagsmClock(char* clock){//returns in clock var the RTC value read (timezon
 		parseResponce("OK", "+CCLK: \"", clock, "\"", 1);
 		//clock[strlen(clock)-4]=0x00;//remove comment in order to return date/time w/o timezone info
 	}
-	return res; 
+	return res;
 }
 
 int setagsmClock(char* clock){

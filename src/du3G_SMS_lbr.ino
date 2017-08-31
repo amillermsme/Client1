@@ -4,27 +4,27 @@
 du3G_SMS_lbr.ino v 0.97/20151118 - d-u3G 1.13 LIBRARY SUPPORT
 COPYRIGHT (c) 2015 Dragos Iosub / R&D Software Solutions srl
 
-You are legaly entitled to use this SOFTWARE ONLY IN CONJUNCTION WITH d-u3G DEVICES USAGE. Modifications, derivates and redistribution 
-of this software must include unmodified this COPYRIGHT NOTICE. You can redistribute this SOFTWARE and/or modify it under the terms 
+You are legaly entitled to use this SOFTWARE ONLY IN CONJUNCTION WITH d-u3G DEVICES USAGE. Modifications, derivates and redistribution
+of this software must include unmodified this COPYRIGHT NOTICE. You can redistribute this SOFTWARE and/or modify it under the terms
 of this COPYRIGHT NOTICE. Any other usage may be permited only after written notice of Dragos Iosub / R&D Software Solutions srl.
 
-This SOFTWARE is distributed is provide "AS IS" in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+This SOFTWARE is distributed is provide "AS IS" in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
 warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 Dragos Iosub, Bucharest 2015.
 http://itbrainpower.net
 ***************************************************************************************
 SOFTWARE:
-This file MUST be present, toghether with other files, inside a folder named 
+This file MUST be present, toghether with other files, inside a folder named
 like your main sketch!
 ***************************************************************************************
 HARDWARE:
 Read the readme file(s) inside the arhive/folder.
 ***************************************************************************************
 */
-
+#define SMSLibDebug
 /*
-	send "message" to "phno". 
+	send "message" to "phno".
 	Returns 1 for success, 0 for failure
 	phtype:
 		129 (default)
@@ -32,38 +32,38 @@ Read the readme file(s) inside the arhive/folder.
 		161
 */
 int sendSMS(char* phno, char* message, char* phtype){
-	if(ready4SMS != 1)	
+	if(ready4SMS != 1)
 		setupMODEMforSMSusage();
 	int res=0;
 	clearBUFFD();
 	sprintf(buffd,"AT+CMGS=\"%s\",%s\r", phno, phtype);
 	agsmSerial.print(buffd);
-	res = recUARTDATA(">","ERROR",12);  
-	if(res==1) {    
+	res = recUARTDATA(">","ERROR",12);
+	if(res==1) {
 		clearBUFFD();
 		sprintf(message,"%s%c",message,0x1A);
-		aGsmCMD(message,2);  
-		res = recUARTDATA("OK","ERROR",30);  
+		aGsmCMD(message,2);
+		res = recUARTDATA("OK","ERROR",30);
 		delay(150);
 		#if defined(SMSLibDebug)
 			if(res==1 && strstr(buffd,"+CMGS:")) {
-				Serial.println(F("SMS succeed")); 
-			}else{ 
-				Serial.println(F("SMS error"));  
+				Serial.println(F("SMS succeed"));
+			}else{
+				Serial.println(F("SMS error"));
 			}
 			Serial.flush();
 			delay(150);
 		#endif
 		/*
-		if(res==1 && strstr(buffd,"+CMGS:")) Serial.println(F("SMS succeed")); 
-		else Serial.println(F("SMS error"));  
+		if(res==1 && strstr(buffd,"+CMGS:")) Serial.println(F("SMS succeed"));
+		else Serial.println(F("SMS error"));
 		Serial.flush();
 		*/
 		delay(150);
 	}
 	else{
 		#if defined(SMSLibDebug)
-			Serial.println(F("SMS rejected"));  
+			Serial.println(F("SMS rejected"));
 			Serial.flush();
 		#endif
 	}
@@ -76,7 +76,7 @@ int sendSMS(char* phno, char* message, char* phtype){
 	you can check...if strlen(buffd)<1 => no SMS at that location
 	SMSindex between 1 and noSMS (last used SMS location)
 */
-void readSMS(int SMSindex){        
+void readSMS(int SMSindex){
 	clearBUFFD();
 	if(ready4SMS != 1) setupMODEMforSMSusage();
 	if(totSMS<1) listSMS();
@@ -118,7 +118,7 @@ void readSMS(int SMSindex){
 			}
 			cnt++;
 		}
-		else if(millis() - startTime > (unsigned long) 2000) //unblocking procedure 
+		else if(millis() - startTime > (unsigned long) 2000) //unblocking procedure
 			  break;
 	}
 	buffd[cnt]=0x00;//add string terminator
@@ -146,7 +146,7 @@ void readAllSMS(){
 	delete SMS at SMSindex location...
 	to make some space, delete from bigges to smalles(desired) SMSindex
 	you can try something like:
-	
+
 	listSMS();//update noSMS(last used SMS location)
 	int cnt;
 	cnt = noSMS;
@@ -156,22 +156,22 @@ void readAllSMS(){
 	}
 */
 void deleteSMS(int SMSindex){
-	if(ready4SMS != 1)	
+	if(ready4SMS != 1)
 		setupMODEMforSMSusage();
 	char tmpChar[20];//40
 	memset(tmpChar,0x00, sizeof(tmpChar));
-	clearBUFFD();     
-	sprintf(tmpChar,"+CMGD=%i\r",SMSindex);//format the delete command 
+	clearBUFFD();
+	sprintf(tmpChar,"+CMGD=%i\r",SMSindex);//format the delete command
 	sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 }
 
 /*
-	read SMS storage capacity, 
-	total SMS locations(capacity) ==> noSMS(global var), 
+	read SMS storage capacity,
+	total SMS locations(capacity) ==> noSMS(global var),
 	last used SMS location ==> noSMS(global var)
 */
 void listSMS(){
-	if(ready4SMS != 1)	
+	if(ready4SMS != 1)
 		setupMODEMforSMSusage();
 	int res=0;
 	int j=0;
