@@ -47,7 +47,7 @@ int sendSMS(char* phno, char* message, char* phtype){
 		delay(150);
 		#if defined(SMSLibDebug)
 			if(res==1 && strstr(buffd,"+CMGS:")) {
-				Serial.println(F("SMS succeed"));
+				Serial.println(F("SMS success"));
 			}else{
 				Serial.println(F("SMS error"));
 			}
@@ -158,10 +158,13 @@ void readAllSMS(){
 void deleteSMS(int SMSindex){
 	if(ready4SMS != 1)
 		setupMODEMforSMSusage();
+	Serial.print(F("Ok fuck. we're gonna try to delete that faggot in position "));
+	Serial.println(SMSindex);
 	char tmpChar[20];//40
 	memset(tmpChar,0x00, sizeof(tmpChar));
 	clearBUFFD();
 	sprintf(tmpChar,"+CMGD=%i\r",SMSindex);//format the delete command
+	Serial.println(tmpChar);
 	sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 }
 

@@ -90,13 +90,14 @@ char ch;
 char buffd[BUFFDSIZE];
 char readBuffer[162];
 //static char mBuffer[162];
-int state=0, i=0, powerState = 0;
+int state=0, i=0, powerState = 0, globalCount = 0;
 
 //unsigned long startTime = 0;
 
 void procRespose(char* msg){
 	memset(readBuffer,0x00,sizeof(readBuffer));
 	sprintf(readBuffer, "%s", msg);
+	Serial.print(F("Sending SMS Content:  "));
 	Serial.println(readBuffer);
 	Serial.flush();
 	delay(150);
@@ -149,7 +150,9 @@ void setup(){
 	delay(500);
 
 	Serial.println(F("wait until c-uGSM/d-u3G is ready"));
-  Serial.println(F("Return Phone Number:"));
+	Serial.println(F("wait until c-uGSM/d-u3G is ready"));
+	Serial.println(F("wait until c-uGSM/d-u3G is ready"));
+  Serial.print(F("Default Phone Number:   "));
   Serial.println(phoneNumber);
 	Serial.flush();
 
@@ -168,16 +171,18 @@ void setup(){
 
 	Serial.println(F("modem ready.. let's proceed and blink"));
 	Serial.flush();
+
+	procRespose((char*)boot);
+	//Blink the light to indicate boot
 	digitalWrite(OutPort2, HIGH);
 	delay(200);
 	digitalWrite(OutPort2, LOW);
 
-	procRespose((char*)boot);
-
 }
 
 int checkSMSAuthNo(int SMSindex){
-	int ret = 0, isPhNum = 0, i = 0, n = 0;
+	int ret = 0, isPhNum = 0, indexPhNum = 0, n = 0, badPhNumberFlag = 0;
+	Serial.print(F("Entered checkSMSAuthNo..."));
   clearBUFFD();
 	if(ready4SMS != 1) setupMODEMforSMSusage();
 	if(totSMS<1) listSMS();
@@ -187,48 +192,64 @@ int checkSMSAuthNo(int SMSindex){
 	int run=1;
 	char c;
 	unsigned long startTime = 0;
+	Serial.print(F("Variables Declared..."));
 	clearagsmSerial();
+	Serial.print(F("Sent AT+CMGR..."));
+	Serial.print(F("Sending SMSindex to Modem = "));
+	itoa(SMSindex,&c,10);
+	Serial.println(&c);
+	Serial.flush();
 	agsmSerial.print("AT+CMGR=");//send command to modem
-  agsmSerial.println(SMSindex);//send command to modem
+	delay(1);
+	agsmSerial.println(SMSindex);//send command to modem
+	//agsmSerial.println(0);
 	//agsmSerial.print(SMSindex);//send command to modem  (FreeTalk SIM not compatible with 2 arg CMGR?)
 	//agsmSerial.println(",0");//send command to modem    (FreeTalk SIM not compatible with 2 arg CMGR?)
-  delay(20);
-	Serial.println(buffd);
-	delay(1);
-	readline();//just 2 remove modem cmd echo
-	Serial.println(buffd);
-  delay(1);
-  readline();//just 2 remove modem cmd echo
-  Serial.println(buffd);
-  delay(1);
-  if(strstr(buffd, phoneNumber)){
+	fATcmd(F("CMGR=1"));
+	Serial.print(buffd);
+
+	if(strstr(buffd, phoneNumber)){
     ret = 1;
   }
   else{
     while (n == 0){
-      if (buffd[i++] == 34){
+      if (buffd[indexPhNum++] == 34){
         isPhNum++;
       }
       if (isPhNum == 3){
-        while (buffd[i + n] != 34){
-          phoneNumber[n] = buffd[i + n]; //parse buffd for ph #
-          Serial.println(buffd[i + n]);
+        while (buffd[indexPhNum + n] != 34){
+          phoneNumber[n] = buffd[indexPhNum + n]; //parse buffd for ph #
+					Serial.print(indexPhNum);
+					Serial.print(F("\t"));
+          Serial.println(buffd[indexPhNum + n]);
           n++;
         }
       }
-
+			if(indexPhNum > 10){
+				Serial.println(F("Bad Phone # in Caller ID."));
+				badPhNumberFlag = 1;
+				break;
+			}
     }
-    Serial.println(F("New Phone Number detected!"));
-    Serial.println(phoneNumber);
-    fATcmd(F("+CPBR=1"));             //Read Position Zero
-    delay(200);
-    agsmSerial.print("AT+CPBW=1,\"");//send command to modem
-    agsmSerial.print(phoneNumber);//send command to modem
-    agsmSerial.println("\",145,\"1\"");
-    delay(20);
-    Serial.println(F("New Phone Number In Phonebook 1:"));
-    fATcmd(F("+CPBR=1"));             //Read Position Zero
-    ret = 1;
+		if(!badPhNumberFlag){
+			Serial.print(F("\n"));
+	    Serial.print(F("New Phone Number detected:    "));
+	    Serial.println(phoneNumber);
+	    fATcmd(F("+CPBR=1"));             //Read Position Zero
+	    delay(200);
+	    agsmSerial.print("AT+CPBW=1,\"");//send command to modem
+	    agsmSerial.print(phoneNumber);//send command to modem
+	    agsmSerial.println("\",145,\"1\"");
+	    delay(20);
+	    Serial.print(F("New Phone Number In Phonebook 1:   "));
+			agsmSerial.println("AT+CPBR=1");        //send command to modem
+		  delay(1);                               //Dump 2 lines of AT echo
+		  //readline();
+		  delay(1);
+		  //readline();
+			Serial.println(buffd);
+	    ret = 1;
+		}
   }
 
 	clearBUFFD();
@@ -318,14 +339,22 @@ void loop(){
 	#if defined(ButtonArray)
   	buttonCheckHandler();
   #endif
+	if(!(++globalCount % 10)){			//Communicates thru USB to confirm functionality
+		globalCount = 0;
+		Serial.println(F("Still Ticking!"));
+	}
 
 	//process SMS commands - start
 	listSMS();																//find the last used SMS location
 	clearagsmSerial();
 	int cnt;
+	Serial.print(F("About to Assign cnt to noSMS = "));
+	Serial.println(noSMS);
 	cnt = noSMS;
 	int validMsgFlag = 0;
 	while (cnt>0){
+		Serial.print(F("SMS Message Detected! Count = "));
+		Serial.println(cnt);
 		if(checkSMSAuthNo(cnt)<1){
 			deleteSMS(cnt);
 			Serial.println("no auth no");

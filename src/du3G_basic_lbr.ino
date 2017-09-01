@@ -240,8 +240,7 @@ int sendATcommand(char* outstr, char* ok, char* err, int to){
   same as sendATcommand, but command(second par) is STORED IN FLASH not in the volatile memmory
   328 RAM...
 */
-int fATcmd(const __FlashStringHelper *cmd, int to, char* ok, char* err)
-{
+int fATcmd(const __FlashStringHelper *cmd, int to, char* ok, char* err){
   const char PROGMEM *p = (const char PROGMEM *)cmd;
   char cmdl[60];//40
   size_t n = 0;
@@ -344,7 +343,7 @@ void getIMEI(){//AT+GSN
 	clearBUFFD();
 	clearagsmSerial();//add
 	fATcmd(F("+GSN"));//add
-  Serial.println(F("About to Parse response in get IMEI"));
+  //Serial.println(F("About to Parse response in get IMEI"));
 	parseResponce("OK", "AT+GSN", tmpChar, "", 2);
 	clearBUFFD();
 	strcpy(buffd, tmpChar);//load value into buffd
@@ -497,13 +496,28 @@ void setupMODEMforSMSusage(){
         phoneNumber[n] = buffd[i + n]; //parse buffd for ph #
         n++;
 				if(n > 12){
-					Serial.println("Bad Number stored in SIM! Resetting to default...");
+					Serial.print(F("Bad Number stored in SIM! Resetting to default. Bad #:"));
+					Serial.println(phoneNumber);
 					strcpy(phoneNumber,AndrewNumber);
+					clearagsmSerial();
+					Serial.flush();
+					delay(20);
+					agsmSerial.print("AT+CPBW=1,\"");//send command to modem
+			    agsmSerial.print(phoneNumber);//send command to modem
+			    agsmSerial.println("\",145,\"1\"");
 				}
         //Serial.println(phoneNumber[n]);
   			}
-
-  Serial.println(phoneNumber);
+	Serial.flush();
+	delay(100);
+	Serial.print(F("Return Phone Number Loaded from Phonebook:  "));
+	agsmSerial.println("AT+CPBR=1");        //send command to modem
+  delay(1);                               //Dump 2 lines of AT echo
+  //readline();
+  delay(1);
+  //readline();
+	Serial.println(buffd);
+	//Serial.println(phoneNumber);
 
 	delay(500);
 	clearagsmSerial();
