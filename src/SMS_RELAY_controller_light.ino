@@ -48,8 +48,18 @@ static char AndrewNumber[16] = "+18319053945";      //destination number
 
 
 static char nunderstand[95] = "BAD COMMAND! digital0,digital1,rel0,rel1,rel2,rel3 >> 1 ->activate relay, 0 ->release relay";
+static char welcomeTXT[106] = "WELCOME TO LIFE LITE\nPlease text back your registration number to pair your phone with your Life Lite.";
+static char pairedTXT[135] = "LIFE LITE PAIRED\nNice to meet you! Did you know you use your Life Lite just by sending me texts? Try it, text me the word REGISTER.";
+static char registeredTXT[142] = "Excellent! Complete your emergency medical information at www.lifelite.org/register. When you are done, text NEXT for further instructions.";
+static char nextTXT[135] = "Good work! Your light will activate with an emergency call on it’s own. You can also use it via text. Text SUPPORT for instructions.";
+static char supportTXT[153] = "INSTRUCTIONS\nText ON to turn on light\nText HELP to turn on emergency light\nText OFF to turn off light\nText SUPPORT to get these instructions again";
+static char onTXT[50] = "Your Life Lite is now ON. Text OFF to turn off.";
+static char helpTXT[137] = "Your Emergency Life Lite is now ON. Text OFF to turn off. This does not alert emergency services. If you have an emergency call 9-1-1.";
+static char offTXT[50] = "Your Life Lite is now OFF. Text ON to turn on.";
+static char pizzaTXT[61] = "Your Life Lite is now on PIZZA mode. Text OFF to turn off.";
 static char executed[40] = " cmd executed";
-static char boot[13] = "BOOT EVENT ";
+static char boot[37] = "Your Life Lite has been activated!";
+static char gateAlertTXT[84] = "Your Life Lite has been triggered by your pool gate sensor. Text OFF to turn off.";
 
 
 #if defined(du3GShieldUsage)							//for d-u3G hardware only!
@@ -89,6 +99,7 @@ SoftwareSerial agsmSerial(2, 3);   //RX==>2 ,TX soft==>3
 char ch;
 char buffd[BUFFDSIZE];
 char readBuffer[162];
+int gateStatus = 0, gateAlertSent = 0;
 //static char mBuffer[162];
 int state=0, i=0, powerState = 0, globalCount = 0;
 
@@ -205,11 +216,19 @@ int checkSMSAuthNo(int SMSindex){
 	//agsmSerial.println(0);
 	//agsmSerial.print(SMSindex);//send command to modem  (FreeTalk SIM not compatible with 2 arg CMGR?)
 	//agsmSerial.println(",0");//send command to modem    (FreeTalk SIM not compatible with 2 arg CMGR?)
-	fATcmd(F("CMGR=1"));
-	Serial.print(buffd);
+	//fATcmd(F("CMGR=1"));
+	delay(20);
+	Serial.println(buffd);
+	readline();
+	delay(20);
+	Serial.println(buffd);
+	readline();
+	delay(20);
+	Serial.println(buffd);
 
 	if(strstr(buffd, phoneNumber)){
     ret = 1;
+		Serial.println(F("Phone Number Recognized as Primary #"));
   }
   else{
     while (n == 0){
@@ -260,12 +279,21 @@ int checkSMSAuthNo(int SMSindex){
 
 int buttonCheckHandler() {
   //Check Button Status
+	if (!ready4SMS){
+		return -1;
+	}
   int ButtonFlag;
   ButtonFlag = (analogRead(Button1) < 500) ? 2 : 0;
   ButtonFlag = (analogRead(Button2) < 500) ? 1 : ButtonFlag;
   ButtonFlag = (analogRead(Button3) < 500) ? 4 : ButtonFlag;
   ButtonFlag = (analogRead(Button4) < 500) ? 3 : ButtonFlag;
-	ButtonFlag = (digitalRead(InPort5) == LOW) ? 5 : ButtonFlag;
+	ButtonFlag = (digitalRead(InPort5) == HIGH && gateStatus == 0) ? 5 : ButtonFlag;
+	ButtonFlag = (digitalRead(InPort5) == LOW && gateStatus == 1) ? 6 : ButtonFlag;
+	if(ButtonFlag){
+		Serial.print(F("Button Detected, Status = "));
+		Serial.println(ButtonFlag);
+	}
+
   switch(ButtonFlag) {
     case 0:
       break;
@@ -279,6 +307,7 @@ int buttonCheckHandler() {
         digitalWrite(OutPort1,LOW);
         digitalWrite(OutPort3,LOW);
         digitalWrite(OutPort2,HIGH);
+				digitalWrite(OutPort4,HIGH);
 				//procRespose("Your Life Lite is now ON. Text OFF to turn off.");
       }
       Serial.println(F("ON/OFF Light activated by Button!"));
@@ -294,6 +323,7 @@ int buttonCheckHandler() {
         digitalWrite(OutPort1,LOW);
         digitalWrite(OutPort2,LOW);
         digitalWrite(OutPort3,HIGH);
+				digitalWrite(OutPort4,HIGH);
 				//procRespose("Your Life Lite is now on PIZZA mode. Text OFF to turn off.");
       }
       Serial.println(F("Pizza Light activated by Button!"));
@@ -322,13 +352,24 @@ int buttonCheckHandler() {
       digitalWrite(OutPort1,LOW);
       digitalWrite(OutPort2,LOW);
       digitalWrite(OutPort3,LOW);
+			digitalWrite(OutPort4,HIGH);
       Serial.println(F("All Lights Deactivated by Button!"));
 			//procRespose("Your Life Lite is now OFF. Text ON to turn on.");
       delay(250);
       break;
 		case 5:
-			procRespose("Gate Open Detected!");
+			//procRespose("Gate Open Detected!");
+			digitalWrite(OutPort0,LOW);
+			digitalWrite(OutPort2,LOW);
+			digitalWrite(OutPort3,LOW);
+			digitalWrite(OutPort1,HIGH);
 			delay(250);
+			digitalWrite(OutPort4,LOW);
+			gateStatus = 1;
+			break;
+		case 6:			//Gate has been closed
+			gateStatus = 0;
+			gateAlertSent = 0;
 			break;
     default:
       break;
@@ -348,10 +389,17 @@ void loop(){
 	listSMS();																//find the last used SMS location
 	clearagsmSerial();
 	int cnt;
-	Serial.print(F("About to Assign cnt to noSMS = "));
-	Serial.println(noSMS);
+	//Serial.print(F("About to Assign cnt to noSMS = "));
+	//Serial.println(noSMS);
 	cnt = noSMS;
 	int validMsgFlag = 0;
+
+	if(gateStatus == 1 && gateAlertSent == 0){
+		procRespose(gateAlertTXT);
+		Serial.println(gateAlertTXT);
+		clearBUFFD();
+		gateAlertSent = 1;
+	}
 	while (cnt>0){
 		Serial.print(F("SMS Message Detected! Count = "));
 		Serial.println(cnt);
@@ -372,14 +420,14 @@ void loop(){
 		delay(50);
 
 		if(strlen(buffd) > 0){												//non empty SMS
-			if(strstr(buffd,"pizza") || strstr(buffd,"Pizza") || strstr(buffd,"PIZZA")){
+			if(strstr(buffd,"pizza") || strstr(buffd,"Pizza") || strstr(buffd,"PIZZA") || strstr(buffd,"D83CDF55")){
 				digitalWrite(OutPort0, LOW);
 				digitalWrite(OutPort1, LOW);
 				digitalWrite(OutPort2, LOW);
 				digitalWrite(OutPort3, HIGH);
 				digitalWrite(OutPort4, HIGH);
-				procRespose("Your Life Lite is now on PIZZA mode. Text OFF to turn off.");
-				Serial.println(F("Your Life Lite is now on PIZZA mode. Text OFF to turn off."));
+				procRespose(pizzaTXT);
+				Serial.println(pizzaTXT);
 				clearBUFFD();
 				validMsgFlag = 1;
 			}
@@ -389,8 +437,8 @@ void loop(){
 				digitalWrite(OutPort2, HIGH);
 				digitalWrite(OutPort3, LOW);
 				digitalWrite(OutPort4, HIGH);
-				procRespose("Your Life Lite is now ON. Text OFF to turn off.");
-				Serial.println(F("Your Life Lite is now ON. Text OFF to turn off."));
+				procRespose(onTXT);
+				Serial.println(onTXT);
 				clearBUFFD();
 				validMsgFlag = 1;
 			}
@@ -404,8 +452,8 @@ void loop(){
 				digitalWrite(OutPort4, LOW);
 				delay(250);
 				digitalWrite(OutPort4, HIGH);
-				procRespose("Your Emergency Life Lite is now ON. Text OFF to turn off.");
-				Serial.println(F("Your Emergency Life Lite is now ON. Text OFF to turn off. This does not alert emergency services. If you have an emergency call 9-1-1."));
+				procRespose(helpTXT);
+				Serial.println(helpTXT);
 				clearBUFFD();
 				validMsgFlag = 1;
 			}
@@ -415,18 +463,19 @@ void loop(){
 				digitalWrite(OutPort2, LOW);
 				digitalWrite(OutPort3, LOW);
 				digitalWrite(OutPort4, HIGH);
-				procRespose("Your Life Lite is now OFF. Text ON to turn on.");
-				Serial.println(F("Your Life Lite is now OFF. Text ON to turn on."));
+				procRespose(offTXT);
+				Serial.println(offTXT);
 				clearBUFFD();
 				validMsgFlag = 1;
 			}
 			if(!validMsgFlag){
-				procRespose("INSTRUCTIONS: Text ON to turn on light.");
-				Serial.println(F("INSTRUCTIONS: Text ON to turn on light. Text HELP to turn on emergency light. Text OFF to turn off light. Text SUPPORT to get these instructions again."));
+				procRespose(supportTXT);
+				Serial.println(supportTXT);
 				clearBUFFD();
 			}
 			deleteSMS(cnt);													//free the SMS location
 		}
+		deleteSMS(1);
 		//here process SMS the content - end
 		clearBUFFD();
 		clearagsmSerial();
