@@ -102,6 +102,8 @@ char readBuffer[162];
 int gateStatus = 0, gateAlertSent = 0;
 //static char mBuffer[162];
 int state=0, i=0, powerState = 0, globalCount = 0;
+int appvdNumber = 3;
+int nextPhonebookEntry;
 
 //unsigned long startTime = 0;
 
@@ -163,6 +165,8 @@ void setup(){
 	Serial.println(F("wait until c-uGSM/d-u3G is ready"));
 	Serial.println(F("wait until c-uGSM/d-u3G is ready"));
 	Serial.println(F("wait until c-uGSM/d-u3G is ready"));
+	Serial.print(F("Arduino version: "));
+	Serial.println(ARDUINO);
   Serial.print(F("Default Phone Number:   "));
   Serial.println(phoneNumber);
 	Serial.flush();
@@ -193,6 +197,9 @@ void setup(){
 
 int checkSMSAuthNo(int SMSindex){
 	int ret = 0, isPhNum = 0, indexPhNum = 0, n = 0, badPhNumberFlag = 0;
+	char incomingNumber[16];
+	char authStatus[16] = "UNKNOWN";
+	char *pch;
 	Serial.print(F("Entered checkSMSAuthNo..."));
   clearBUFFD();
 	if(ready4SMS != 1) setupMODEMforSMSusage();
@@ -218,22 +225,106 @@ int checkSMSAuthNo(int SMSindex){
 	//agsmSerial.println(",0");//send command to modem    (FreeTalk SIM not compatible with 2 arg CMGR?)
 	//fATcmd(F("CMGR=1"));
 	delay(20);
-	Serial.println(buffd);
+	//Serial.println(buffd);
 	readline();
 	delay(20);
-	Serial.println(buffd);
+	//Serial.println(buffd);
 	readline();
 	delay(20);
 	Serial.println(buffd);
 
-	if(strstr(buffd, phoneNumber)){
+	//Extract Phone Number
+	pch = strtok(buffd,",");
+	pch = strtok (NULL, ",");
+	strcpy(incomingNumber, pch);
+	clearBUFFD();
+	clearagsmSerial();
+	Serial.print(F("Incoming Text Phone Number: "));
+	Serial.println(incomingNumber);
+	delay(100);
+
+	readline();
+	delay(20);
+	Serial.println(buffd);
+
+	//Get Authorization Status of phone number
+	for(n=1; n<nextPhonebookEntry; n++){
+		agsmSerial.print("AT+CPBR=");//send command to modem
+		agsmSerial.println(n);//send command to modem
+		delay(20);
+		readline();
+		delay(20);
+		readline();
+		delay(20);
+		pch = strtok(buffd,",");
+		pch = strtok (NULL, ",");
+		if(strstr(pch,incomingNumber)){
+			pch = strtok (NULL, ",");
+			pch = strtok (NULL, ",");
+			strcpy(authStatus, pch);
+			n = nextPhonebookEntry;
+		}
+		clearagsmSerial();
+		clearBUFFD();
+	}
+	Serial.print(F("Incoming Authorization Status: "));
+	Serial.println(authStatus);
+
+
+	ret = (strstr(authStatus,"ROOT")) ? 1 : 0;				//Root # used. All Good, process command.
+	ret = (strstr(authStatus,"UNKNOWN")) ? 2 : ret;		//New Phone number detected
+	ret = (strstr(authStatus,"KNOWN")) ? 3 : ret;			//Seen, not yet paired
+	ret = (strstr(authStatus,"PAIRED")) ? 4 : ret;		//Paired, not yet registered
+	ret = (strstr(authStatus,"AUTH")) ? 5 : ret;			//Registered.
+
+	switch(ret){
+		case 0:
+			Serial.println(F("Unknown Status...Shouldn't be Possible."));
+			ret = 0;
+			break;
+		case 1:
+			Serial.println(F("ROOT Phone Number Recognized"));
+			break;
+		case 2:
+			Serial.println(F("UNKNOWN Phone Number Recognized"));
+			ret = 0;
+			break;
+		case 3:
+			Serial.println(F("KNOWN Phone Number Recognized"));
+			ret = 0;
+			break;
+		case 4:
+			Serial.println(F("PAIRED Phone Number Recognized"));
+			ret = 0;
+			break;
+		case 5:
+			Serial.println(F("AUTH Phone Number Recognized"));
+			break;
+	}
+
+
+	if(strstr(incomingNumber, phoneNumber) && appvdNumber == 3){
     ret = 1;
-		Serial.println(F("Phone Number Recognized as Primary #"));
+		Serial.println(F("Phone Number Recognized"));
   }
+	else if(strstr(buffd,"1234")){
+		appvdNumber = 1;
+		Serial.println(F("PIN entered successfully"));
+		procRespose(pairedTXT);
+		Serial.println(pairedTXT);
+		clearBUFFD();
+	}
+	else if(strstr(buffd,"OK")){
+		//This catches fuckups by CMGR. Sometimes CMGR returns "OK" because the modem is fucking retarded
+		Serial.println(F("Modem or sim fuckup. Deleting all messages."));
+		deleteSMS(0);
+	}
   else{
     while (n == 0){
       if (buffd[indexPhNum++] == 34){
         isPhNum++;
+				Serial.print(F("Comma found! isPhNum = "));
+				Serial.println(isPhNum);
       }
       if (isPhNum == 3){
         while (buffd[indexPhNum + n] != 34){
@@ -244,30 +335,44 @@ int checkSMSAuthNo(int SMSindex){
           n++;
         }
       }
-			if(indexPhNum > 10){
-				Serial.println(F("Bad Phone # in Caller ID."));
+			if(indexPhNum > 30){
+				Serial.print(F("Bad Phone # in Caller ID: "));
+				Serial.println(buffd);
 				badPhNumberFlag = 1;
 				break;
 			}
     }
 		if(!badPhNumberFlag){
-			Serial.print(F("\n"));
-	    Serial.print(F("New Phone Number detected:    "));
+			clearBUFFD();
+			Serial.print(F("n = "));
+	    Serial.println(n);
+	    Serial.print(F("New Phone Number detected: "));
 	    Serial.println(phoneNumber);
-	    fATcmd(F("+CPBR=1"));             //Read Position Zero
-	    delay(200);
-	    agsmSerial.print("AT+CPBW=1,\"");//send command to modem
+			appvdNumber = 0;
+	    //fATcmd(F("+CPBR=1"));             //Read Position Zero
+	    //delay(200);
+	    /*agsmSerial.print("AT+CPBW=1,\"");//send command to modem
 	    agsmSerial.print(phoneNumber);//send command to modem
 	    agsmSerial.println("\",145,\"1\"");
-	    delay(20);
+	    delay(200);*/
+			sprintf(buffd,"AT+CPBW=%i,\"%s\",145,\"1\"\r",nextPhonebookEntry,phoneNumber);
+			agsmSerial.print(buffd);
+			delay(200);
+			Serial.print(F("Writing New Phone Number: "));
+	    Serial.println(buffd);
+			clearBUFFD();
+			clearagsmSerial();
 	    Serial.print(F("New Phone Number In Phonebook 1:   "));
-			agsmSerial.println("AT+CPBR=1");        //send command to modem
+			fATcmd(F("+CPBR=1"));             //Read Position Zero
 		  delay(1);                               //Dump 2 lines of AT echo
 		  //readline();
 		  delay(1);
 		  //readline();
 			Serial.println(buffd);
-	    ret = 1;
+			procRespose(welcomeTXT);
+			Serial.println(welcomeTXT);
+			clearBUFFD();
+	    ret = 0;
 		}
   }
 
@@ -289,13 +394,15 @@ int buttonCheckHandler() {
   ButtonFlag = (analogRead(Button4) < 500) ? 3 : ButtonFlag;
 	ButtonFlag = (digitalRead(InPort5) == HIGH && gateStatus == 0) ? 5 : ButtonFlag;
 	ButtonFlag = (digitalRead(InPort5) == LOW && gateStatus == 1) ? 6 : ButtonFlag;
-	if(ButtonFlag){
+
+
+	if(ButtonFlag){			//DEBUG: Serial Comm of Button Content
 		Serial.print(F("Button Detected, Status = "));
 		Serial.println(ButtonFlag);
 	}
 
   switch(ButtonFlag) {
-    case 0:
+    case 0:						//Case 0 means No buttons pressed and gate is closed and has been closed for at least one loop
       break;
     case 1:                 //Button 1 Turns ON/OFF Normal Light
       if(digitalRead(OutPort2) == HIGH) {
@@ -347,17 +454,21 @@ int buttonCheckHandler() {
       delay(250);
 			digitalWrite(OutPort4,HIGH);
       break;
-    case 4:
+    case 4:							//Button 4 turns off all lights
       digitalWrite(OutPort0,LOW);
       digitalWrite(OutPort1,LOW);
       digitalWrite(OutPort2,LOW);
       digitalWrite(OutPort3,LOW);
 			digitalWrite(OutPort4,HIGH);
       Serial.println(F("All Lights Deactivated by Button!"));
+			clearBUFFD();
+			clearagsmSerial();
+			Serial.flush();
+			resetFunc(); //call reset
 			//procRespose("Your Life Lite is now OFF. Text ON to turn on.");
       delay(250);
       break;
-		case 5:
+		case 5:							//Case 5 is when the gate has just opened
 			//procRespose("Gate Open Detected!");
 			digitalWrite(OutPort0,LOW);
 			digitalWrite(OutPort2,LOW);
@@ -367,7 +478,7 @@ int buttonCheckHandler() {
 			digitalWrite(OutPort4,LOW);
 			gateStatus = 1;
 			break;
-		case 6:			//Gate has been closed
+		case 6:			//Gate has been just been closed
 			gateStatus = 0;
 			gateAlertSent = 0;
 			break;
@@ -380,7 +491,7 @@ void loop(){
 	#if defined(ButtonArray)
   	buttonCheckHandler();
   #endif
-	if(!(++globalCount % 10)){			//Communicates thru USB to confirm functionality
+	if(!(++globalCount % 10)){			//DEBUG: Communicates thru USB to confirm continuing functionality
 		globalCount = 0;
 		Serial.println(F("Still Ticking!"));
 	}

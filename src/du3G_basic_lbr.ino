@@ -462,10 +462,11 @@ void setupMODEMforSMSusage(){
 	int res;
   int i=0,n=0;
 	res = 0;
+	char *pch;
 
 	while (res!=1){//wait
 		res = fATcmd(F("+CPBS?"));    //Check selected memory storage. Not supported w/ AT&T
-		delay(500);
+		delay(100);
 	}
 	//set SIMM memory as active
 	fATcmd(F("+CPBS=\"SM\""));      //Select "SIM Phonebook" as memory location. Not supported w/ AT&T
@@ -473,14 +474,30 @@ void setupMODEMforSMSusage(){
 	res = 0;
 	while (res!=1){//wait
 		res = fATcmd(F("+CPBS?"));    //Check that memory location instruction took. Not supported w/ AT&T
-		delay(500);
+		delay(100);
 	}
+	//Serial.print(F("Phonebook details: "));
+	//readline();
+  delay(1);
+	//Serial.println(buffd);
+	pch = strtok(buffd,",");
+	pch = strtok (NULL, ",");
+	//pch = strtok (NULL, ",");
+	nextPhonebookEntry = atoi(pch) + 1;
+	if(nextPhonebookEntry > 254){
+		Serial.print(F("Phone Book Full!!!"));
+		nextPhonebookEntry = 2;
+	}
+	Serial.print(F("First Empty Slot: "));
+	Serial.println(nextPhonebookEntry);
+
 	//set SMS mode TEXT
 	res = fATcmd(F("+CMGF=1"));             //Select "Text Mode" for SMS Message format
 	res = fATcmd(F("+CSMP=17,167,0,0"));    //d-u3G text mode params
 	res = fATcmd(F("+CSDH=1"));             //d-u3G set header to "visible"
 	res = fATcmd(F("+CSCS=\"GSM\""));       //d-u3G set char set to GSM 7bit alphabet
 	res = fATcmd(F("+CNMI=2,0,0,0,0"));     //set new message handling params
+	res = fATcmd(F("+CMGD=1,4"));     			//clear all SMS
 	ready4SMS = 1;
 
   //Load SMS number from position 1
@@ -496,7 +513,7 @@ void setupMODEMforSMSusage(){
         phoneNumber[n] = buffd[i + n]; //parse buffd for ph #
         n++;
 				if(n > 12){
-					Serial.print(F("Bad Number stored in SIM! Resetting to default. Bad #:"));
+					Serial.print(F("Bad Number stored in SIM! Resetting to default. Bad #: "));
 					Serial.println(phoneNumber);
 					strcpy(phoneNumber,AndrewNumber);
 					clearagsmSerial();
@@ -504,7 +521,7 @@ void setupMODEMforSMSusage(){
 					delay(20);
 					agsmSerial.print("AT+CPBW=1,\"");//send command to modem
 			    agsmSerial.print(phoneNumber);//send command to modem
-			    agsmSerial.println("\",145,\"1\"");
+			    agsmSerial.println("\",145,\"ROOT\"");
 				}
         //Serial.println(phoneNumber[n]);
   			}

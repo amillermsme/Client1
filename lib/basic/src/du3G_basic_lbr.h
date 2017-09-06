@@ -2,18 +2,18 @@
 du3G_basic_lbr.ino v 0.9711/20160707 - d-u3G 1.13 LIBRARY SUPPORT
 COPYRIGHT (c) 2015 Dragos Iosub / R&D Software Solutions srl
 
-You are legaly entitled to use this SOFTWARE ONLY IN CONJUNCTION WITH d-u3G DEVICES USAGE. Modifications, derivates and redistribution 
-of this software must include unmodified this COPYRIGHT NOTICE. You can redistribute this SOFTWARE and/or modify it under the terms 
+You are legaly entitled to use this SOFTWARE ONLY IN CONJUNCTION WITH d-u3G DEVICES USAGE. Modifications, derivates and redistribution
+of this software must include unmodified this COPYRIGHT NOTICE. You can redistribute this SOFTWARE and/or modify it under the terms
 of this COPYRIGHT NOTICE. Any other usage may be permited only after written notice of Dragos Iosub / R&D Software Solutions srl.
 
-This SOFTWARE is distributed is provide "AS IS" in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+This SOFTWARE is distributed is provide "AS IS" in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
 warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 Dragos Iosub, Bucharest 2016.
 http://itbrainpower.net
 ***************************************************************************************
 SOFTWARE:
-This file MUST be present, toghether with other files, inside a folder named 
+This file MUST be present, toghether with other files, inside a folder named
 like your main sketch!
 ***************************************************************************************
 HARDWARE:
@@ -49,7 +49,7 @@ Read the readme file(s) inside the arhive/folder.
 #define GPRS 0
 
 int activeSIM =0;
-/*definition and how to in ags_basic.ino file*/ 
+/*definition and how to in ags_basic.ino file*/
 int getSignalStatus(void);
 void clearBUFFD(void);
 size_t aGsmCMD(char* cmd, int Delay_mS);
@@ -77,8 +77,8 @@ void clearagsmSerial(void);
 void clearSerial(void);
 
 //void setActiveSIM(int SIM);
-//void activateTopSIM(void){setActiveSIM(0);}//call this function if you want to test/use SIM inserted in the SIM SOCKET placed on TOP of a-gsm 
-//void activateBottomSIM(void){setActiveSIM(1);};//call this function if you want to test/use SIM inserted in the SIM SOCKET placed on BOTTOM of a-gsm 
+//void activateTopSIM(void){setActiveSIM(0);}//call this function if you want to test/use SIM inserted in the SIM SOCKET placed on TOP of a-gsm
+//void activateBottomSIM(void){setActiveSIM(1);};//call this function if you want to test/use SIM inserted in the SIM SOCKET placed on BOTTOM of a-gsm
 
 //void setupMODEMforDTMFSusage(void);
 //void setupMODEMforDTMFRusage(void);
@@ -102,3 +102,4 @@ void powerOnModem(void);
 void modemHWSetup(void);
 
 int readline(unsigned long timeout = AGSM_DEFAULT_TIMEOUT_NO);
+void(* resetFunc) (void) = 0;//declare reset function at address 0

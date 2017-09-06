@@ -158,12 +158,20 @@ void readAllSMS(){
 void deleteSMS(int SMSindex){
 	if(ready4SMS != 1)
 		setupMODEMforSMSusage();
-	Serial.print(F("Deleting SMS is Mem Pos #"));
-	Serial.println(SMSindex);
+
 	char tmpChar[20];//40
 	memset(tmpChar,0x00, sizeof(tmpChar));
 	clearBUFFD();
-	sprintf(tmpChar,"+CMGD=%i\r",SMSindex);//format the delete command
+	if(!SMSindex){
+		Serial.println(F("Deleting ALL SMS!"));
+		sprintf(tmpChar,"+CMGD=%i,4\r",1);//format the delete command
+	}
+	else{
+		Serial.print(F("Deleting SMS is Mem Pos #"));
+		Serial.println(SMSindex);
+		sprintf(tmpChar,"+CMGD=%i\r",SMSindex);//format the delete command
+	}
+	//sprintf(tmpChar,"+CMGD=%i,4\r",SMSindex);//format the delete command EDIT: delete ALL messages!
 	//Serial.println(tmpChar);
 	sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 }
