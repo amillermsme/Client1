@@ -181,14 +181,19 @@ void deleteSMS(int SMSindex){
 	total SMS locations(capacity) ==> noSMS(global var),
 	last used SMS location ==> noSMS(global var)
 */
-void listSMS(){
+int listSMS(){
 	if(ready4SMS != 1)
 		setupMODEMforSMSusage();
 	int res=0;
 	int j=0;
 	char * pch;
-	while(res!=1)
-	res = fATcmd(F("+CPMS?"),10, "OK","+CMS ERROR:");//+CPMS: "SM",8,50,"SM",8,50,"SM",8,50// +CMS ERROR:
+	while(res!=1){
+		//fATcmd(F("+CMGL=\"REC UNREAD\",1"),10, "OK","+CMS ERROR:");
+		res = fATcmd(F("+CPMS?"),10, "OK","+CMS ERROR:");//+CPMS: "SM",8,50,"SM",8,50,"SM",8,50// +CMS ERROR:
+		if(j++ > 3)
+			resetMODEM();
+	}
+
 	j=0;
 	pch = strtok (buffd,",");
 	while (pch != NULL){//parsing for SMS SIMM entries
@@ -200,4 +205,5 @@ void listSMS(){
 		pch = strtok (NULL, ",");
 		j++;
 	}
+	return res;
 }

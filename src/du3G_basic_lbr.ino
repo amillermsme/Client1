@@ -163,6 +163,9 @@ int recUARTDATA( char* ok, char* err, int to){
 	startTime = millis();
 	//delay(10);
 	while(run){
+		#if defined(ButtonArray)
+			buttonCheckHandler();
+		#endif
 		if(strstr(buffd,ok)) {
 			delay(200);
 			#if defined(atDebug)
@@ -186,14 +189,12 @@ int recUARTDATA( char* ok, char* err, int to){
 				Serial.println(F("to!"));
 			#endif
 			//clearagsmSerial();
+			Serial.println(F("Restting Modem..."));
+			//restartMODEM();	//fuckin' reset that shit
 			run=0;
 			res=-1;//timeout!
 		}
-    #if defined(ButtonArray)
-      buttonCheckHandler();
-    #endif
-
-		while(TXavailable()){
+    while(TXavailable()){
 			u8_c = aGsmREAD();
       if(i<BUFFDSIZE-1){
     		buffd[i]=u8_c;
@@ -221,9 +222,9 @@ int sendATcommand(char* outstr, char* ok, char* err, int to){
 	int res=0;
 	clearagsmSerial();
 	clearBUFFD();
-	#if defined(atDebug)
+	/*#if defined(atDebug)
 		Serial.println(outstr);
-  #endif
+  #endif*/
 	agsmSerial.print(F("AT"));
 	agsmSerial.flush();
 	aGsmCMD(outstr,1);
@@ -498,6 +499,7 @@ void setupMODEMforSMSusage(){
 	res = fATcmd(F("+CSCS=\"GSM\""));       //d-u3G set char set to GSM 7bit alphabet
 	res = fATcmd(F("+CNMI=2,0,0,0,0"));     //set new message handling params
 	res = fATcmd(F("+CMGD=1,4"));     			//clear all SMS
+	//res = fATcmd(F("+QMGDA=\"DEL ALL\""));     			//clear all SMS
 	ready4SMS = 1;
 
   //Load SMS number from position 1

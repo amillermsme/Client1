@@ -35,4 +35,4 @@ int sendSMS(char* phno, char* message, char* phtype = "129");
 void readSMS(int SMSindex);
 void readAllSMS(void);
 void deleteSMS(int SMSindex);
-void listSMS(void);
+int	 listSMS(void);
