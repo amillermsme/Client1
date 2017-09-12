@@ -50,7 +50,7 @@ Now you can compile and upload your code supporting highier buffered serial inpu
 	returns levels bw 0(no signal/signal error) and 7...see down there the corresonding levels
 */
 
-#define atDebug
+//#define atDebug
 
 int getSignalStatus(){
 	char i[3];
@@ -485,11 +485,11 @@ void setupMODEMforSMSusage(){
 	pch = strtok (NULL, ",");
 	//pch = strtok (NULL, ",");
 	nextPhonebookEntry = atoi(pch) + 1;
-	if(nextPhonebookEntry > 254){
-		Serial.print(F("Phone Book Full!!!"));
-		nextPhonebookEntry = 2;
+	if(nextPhonebookEntry > 254 || nextPhonebookEntry < 3){
+		Serial.println(F("Phone Book Full!!! Or More Likely Empty!"));
+		nextPhonebookEntry = 3;
 	}
-	Serial.print(F("First Empty Slot: "));
+	Serial.print(F("First Empty Slot in SIM PhoneBook (must be under 254): "));
 	Serial.println(nextPhonebookEntry);
 
 	//set SMS mode TEXT
@@ -502,43 +502,45 @@ void setupMODEMforSMSusage(){
 	//res = fATcmd(F("+QMGDA=\"DEL ALL\""));     			//clear all SMS
 	ready4SMS = 1;
 
-  //Load SMS number from position 1
-  //res = fATcmd(F("+CPBW=1,\"+18319153945\""));             //Populate Position Zero (test)
-  res = fATcmd(F("+CPBR=1"));             //Read Position Zero
-  clearagsmSerial();
-  agsmSerial.println("AT+CPBR=1");        //send command to modem
-  delay(1);                               //Dump 2 lines of AT echo
-  readline();
-  delay(1);
-  readline();
-  while (n == 0) if (buffd[i++] == 34) while (buffd[i + n] != 34){
-        phoneNumber[n] = buffd[i + n]; //parse buffd for ph #
-        n++;
-				if(n > 12){
-					Serial.print(F("Bad Number stored in SIM! Resetting to default. Bad #: "));
-					Serial.println(phoneNumber);
-					strcpy(phoneNumber,AndrewNumber);
-					clearagsmSerial();
-					Serial.flush();
-					delay(20);
-					agsmSerial.print("AT+CPBW=1,\"");//send command to modem
-			    agsmSerial.print(phoneNumber);//send command to modem
-			    agsmSerial.println("\",145,\"ROOT\"");
-				}
-        //Serial.println(phoneNumber[n]);
-  			}
-	Serial.flush();
-	delay(100);
-	Serial.print(F("Return Phone Number Loaded from Phonebook:  "));
-	agsmSerial.println("AT+CPBR=1");        //send command to modem
-  delay(1);                               //Dump 2 lines of AT echo
-  //readline();
-  delay(1);
-  //readline();
-	Serial.println(buffd);
-	//Serial.println(phoneNumber);
+	//Load SMS number from position 2 (Root Number)
+	res = fATcmd(F("+CPBR=2"));             //Read Root Number
+	pch = strtok(buffd,"\n");
+	pch = strtok (NULL, "\n");
+	pch = strtok(pch,",");
+	pch = strtok (NULL, ",");
+	pch[13] = NULL;
+	if(strstr(pch,"+1")){
+		strcpy(rootNumber, &pch[1]);
+		Serial.print(F("Root Phone Number: "));
+		Serial.println(rootNumber);
+	}
+	else{
+		Serial.print(F("Bad Root Phone Number Detected: "));
+		Serial.println(&pch[1]);
+		Serial.print(F("Defaulting to Hard Coded Root Number: "));
+		Serial.println(rootNumber);
+	}
 
-	delay(500);
+	//Load SMS number from position 1 (Active Number)
+	res = fATcmd(F("+CPBR=1"));             //Read Last Number
+	pch = strtok(buffd,"\n");
+	pch = strtok (NULL, "\n");
+	pch = strtok(pch,",");
+	pch = strtok (NULL, ",");
+	pch[13] = NULL;
+	if(strstr(pch,"+1")){
+		strcpy(phoneNumber, &pch[1]);
+		Serial.print(F("Active Phone Number: "));
+		Serial.println(phoneNumber);
+	}
+	else{
+		strcpy(phoneNumber, rootNumber);
+		Serial.print(F("Bad Active Phone Number Detected: "));
+		Serial.println(&pch[1]);
+		Serial.print(F("Defaulting to Hard Coded Root Number: "));
+		Serial.println(phoneNumber);
+	}
+	delay(100);
 	clearagsmSerial();
 }
 

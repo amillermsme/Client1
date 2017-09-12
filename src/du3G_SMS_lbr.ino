@@ -22,7 +22,7 @@ HARDWARE:
 Read the readme file(s) inside the arhive/folder.
 ***************************************************************************************
 */
-#define SMSLibDebug
+//#define SMSLibDebug
 /*
 	send "message" to "phno".
 	Returns 1 for success, 0 for failure
