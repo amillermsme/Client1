@@ -57,7 +57,7 @@ int getSignalStatus(){
 	int j=0;
 	int h=0;//signal level
 	int res = 0;
-	char tmpChar[20];//40
+	//char tmpChar[20];//40
 	char* pch;
 	clearBUFFD();
 	memset(tmpChar,0x00,sizeof(tmpChar));
@@ -189,7 +189,7 @@ int recUARTDATA( char* ok, char* err, int to){
 				Serial.println(F("to!"));
 			#endif
 			//clearagsmSerial();
-			Serial.println(F("Restting Modem..."));
+			Serial.println(F("recUARTDATA timeout! Shitty Signal?"));
 			//restartMODEM();	//fuckin' reset that shit
 			run=0;
 			res=-1;//timeout!
@@ -321,7 +321,7 @@ int parseResponce(char* ok, char* head, char* retChar, char* separator , int ind
 
 */
 void getVoltage(){
-	char tmpChar[20];
+	//char tmpChar[20];
 	memset(tmpChar,0x00, sizeof(tmpChar));
 	clearBUFFD();
 	aGsmCMD("AT+CBC",1000);
@@ -339,7 +339,7 @@ void getVoltage(){
 
 /*utility that read the modem IMEI value ==> buffd*/
 void getIMEI(){//AT+GSN
-	char tmpChar[20];
+	//char tmpChar[20];
 	memset(tmpChar,0x00, sizeof(tmpChar));
 	clearBUFFD();
 	clearagsmSerial();//add
@@ -352,7 +352,7 @@ void getIMEI(){//AT+GSN
 
 /*utility that read the SIM IMSI value ==> buffd*/
 void getIMSI(){
-	char tmpChar[20];
+	//char tmpChar[20];
 	memset(tmpChar,0x00, sizeof(tmpChar));
 	clearBUFFD();
 	clearagsmSerial();//add
@@ -390,7 +390,7 @@ int dial(char* destinationNO){
 		//setAUDIOchannel(20);
 	}
 
-	char tmpChar[20];//40
+	//char tmpChar[20];//40
 	memset(tmpChar, 0x00, sizeof(tmpChar));
 	sprintf(tmpChar,"D%s;",destinationNO);
 	return sendATcommand(tmpChar);
@@ -417,7 +417,7 @@ int dial(char* destinationNO){
 
 */
 int registration(int type){
-	char tmpChar[20];//40
+	//char tmpChar[20];//40
 	int res;
 	if (type==1) res = fATcmd(F("+CREG?"));
 	else res = fATcmd(F("+CGREG?"));
@@ -502,6 +502,12 @@ void setupMODEMforSMSusage(){
 	//res = fATcmd(F("+QMGDA=\"DEL ALL\""));     			//clear all SMS
 	ready4SMS = 1;
 
+	/*res = fATcmd(F("+CPBW=3"));
+	res = fATcmd(F("+CPBW=4"));
+	res = fATcmd(F("+CPBW=5"));
+	res = fATcmd(F("+CPBW=6"));
+	nextPhonebookEntry = 3;*/
+
 	//Load SMS number from position 2 (Root Number)
 	res = fATcmd(F("+CPBR=2"));             //Read Root Number
 	pch = strtok(buffd,"\n");
@@ -515,10 +521,15 @@ void setupMODEMforSMSusage(){
 		Serial.println(rootNumber);
 	}
 	else{
+		strcpy(rootNumber, andrewNumber);
 		Serial.print(F("Bad Root Phone Number Detected: "));
 		Serial.println(&pch[1]);
 		Serial.print(F("Defaulting to Hard Coded Root Number: "));
-		Serial.println(rootNumber);
+		Serial.println(andrewNumber);
+		memset(tmpChar,0x00,sizeof(tmpChar));
+		sprintf(tmpChar,"+CPBW=2,\"%s\",145,\"ROOT\"\r",andrewNumber);
+		sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+		clearagsmSerial();
 	}
 
 	//Load SMS number from position 1 (Active Number)
@@ -534,11 +545,26 @@ void setupMODEMforSMSusage(){
 		Serial.println(phoneNumber);
 	}
 	else{
-		strcpy(phoneNumber, rootNumber);
+		strcpy(phoneNumber, andrewNumber);
 		Serial.print(F("Bad Active Phone Number Detected: "));
 		Serial.println(&pch[1]);
 		Serial.print(F("Defaulting to Hard Coded Root Number: "));
 		Serial.println(phoneNumber);
+		memset(tmpChar,0x00,sizeof(tmpChar));
+		sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"ROOT\"\r",andrewNumber);
+		sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+		clearagsmSerial();
+	}
+	delay(100);
+	for(i=1;i<nextPhonebookEntry; i++){
+		memset(tmpChar,0x00,sizeof(tmpChar));
+		sprintf(tmpChar,"+CPBR=%i",i);
+		clearagsmSerial();
+		sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+		pch = strtok(buffd,"\n");
+		pch = strtok (NULL, "\n");
+		Serial.print(F("Phone Number Entry:"));
+		Serial.println(&pch[1]);
 	}
 	delay(100);
 	clearagsmSerial();
@@ -834,7 +860,7 @@ int getagsmClock(char* clock){//returns in clock var the RTC value read (timezon
 }
 
 int setagsmClock(char* clock){
-	char tmpChar[40];
+	//char tmpChar[40];
 	memset(tmpChar,0x00, sizeof(tmpChar));
 	sprintf(tmpChar,"+CCLK=\"%s+00\"",clock);
 	return(sendATcommand(tmpChar,"OK","ERROR",2));

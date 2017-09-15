@@ -22,6 +22,7 @@ http://itbrainpower.net
 
 char phoneNumber[16] = "+18319053945";			//destination number
 char rootNumber[16] = "+18319053945";      //destination number
+const char andrewNumber[16] = "+18319053945";      //Andrew's number
 
 #define FourRelays									//un-comment this to use 2 relays output (1 2xRELAY BOARD)
 #define ExtraIO
@@ -64,8 +65,9 @@ const char pizzaTXT[] PROGMEM = "Your Life Lite is now on PIZZA mode. Text OFF t
 const char failTXT[] PROGMEM = "Network communication issue. Previous commands may not be executed. This is usually caused by sending too many messages too quickly.";
 const char gateAlertTXT[] PROGMEM = "Your Life Lite has been triggered by your pool gate sensor. Text OFF to turn off.";
 const char deleteTXT[] PROGMEM = "Phone Number Deleted and Replaced with Root Number.";
-const char deleteFailTXT[] PROGMEM = "Cannot Delete Root Phone Number";
+const char deleteFailTXT[] PROGMEM = "Root Phone Number Replaced with Andrew's Number.";
 const char rootTXT[] PROGMEM = "New Root Phone Number Defined! This is now the root phone for the Life Lite.";
+const char signalTXT[] PROGMEM = "Lite Lite's Bad-Signal-Click toggled.";
 
 #if defined(du3GShieldUsage)							//for d-u3G hardware only!
 	//#define HARDWARERELEASE	1						//un-comment this only if module SN bw. 031000 032999 and comment the next one
@@ -113,6 +115,7 @@ int state=0, i=0, powerState = 0, globalCount = 0;
 int appvdNumber = 3;
 int nextPhonebookEntry;
 int gateEnable = FALSE;
+int signalChirp = FALSE;
 
 //unsigned long startTime = 0;
 
@@ -262,11 +265,18 @@ int checkSMSAuthNo(int SMSindex, char *incomingNumber, int *phoneNumberSlot){
 	pch = strtok(pch,",");
 	pch = strtok (NULL, ",");
 	pch[13] = NULL;
-	strcpy(incomingNumber, &pch[1]);
+	if(strstr(pch,"+1")){
+		strcpy(incomingNumber, &pch[1]);
+		Serial.print(F("Incoming Text Phone Number: "));
+		Serial.println(incomingNumber);
+	}
+	else{
+		Serial.print(F("Bad Text Phone Number: "));
+		Serial.println(&pch[1]);
+		return 8;
+	}
 	clearBUFFD();
 	clearagsmSerial();
-	Serial.print(F("Incoming Text Phone Number: "));
-	Serial.println(incomingNumber);
 	delay(100);
 
 	*phoneNumberSlot = nextPhonebookEntry;
@@ -306,6 +316,14 @@ int checkSMSAuthNo(int SMSindex, char *incomingNumber, int *phoneNumberSlot){
 	ret = (strstr(authStatus,"REGISTERED")) ? 5 : ret;		//Registered, not yet nexted
 	ret = (strstr(authStatus,"AUTH")) ? 6 : ret;					//Registered.
 
+	memset(tmpChar,0x00,sizeof(tmpChar));
+	if(ret == 1) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"ROOT\"\r",andrewNumber);
+	if(ret == 4) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"PAIRED\"\r",andrewNumber);
+	if(ret == 5) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"REGISTERED\"\r",andrewNumber);
+	if(ret == 6) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"AUTH\"\r",andrewNumber);
+	sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+	clearagsmSerial();
+
 	clearBUFFD();
 	clearagsmSerial();
 	return ret;
@@ -318,12 +336,12 @@ int buttonCheckHandler() {
 	}
   int ButtonFlag;
   ButtonFlag = (analogRead(Button1) < 500) ? 2 : 0;
+	ButtonFlag = (digitalRead(InPort5) == HIGH && gateStatus == 0) ? 5 : ButtonFlag;
+	ButtonFlag = (digitalRead(InPort5) == LOW && gateStatus == 1) ? 6 : ButtonFlag;
   ButtonFlag = (analogRead(Button2) < 500) ? 1 : ButtonFlag;
   ButtonFlag = (analogRead(Button3) < 500) ? 4 : ButtonFlag;
   ButtonFlag = (analogRead(Button4) < 500) ? 3 : ButtonFlag;
-	ButtonFlag = (digitalRead(InPort5) == HIGH && gateStatus == 0) ? 5 : ButtonFlag;
-	ButtonFlag = (digitalRead(InPort5) == LOW && gateStatus == 1) ? 6 : ButtonFlag;
-
+	
 	if(ButtonFlag){			//DEBUG: Serial Comm of Button Content
 		Serial.print(F("Button Detected, Status = "));
 		Serial.println(ButtonFlag);
@@ -344,7 +362,7 @@ int buttonCheckHandler() {
 				digitalWrite(OutPort4,HIGH);
       }
       Serial.println(F("ON/OFF Light activated by Button!"));
-      delay(250);
+      delay(500);
       break;
     case 2:                 //Button 2 Turns ON/OFF Pizza Light
       if(digitalRead(OutPort3) == HIGH) {
@@ -358,7 +376,7 @@ int buttonCheckHandler() {
 				digitalWrite(OutPort4,HIGH);
       }
       Serial.println(F("Pizza Light activated by Button!"));
-      delay(250);
+      delay(500);
       break;
     case 3:                 //Button 3 Turns ON/OFF Strobe Light
       if(digitalRead(OutPort1) == HIGH) {
@@ -373,7 +391,7 @@ int buttonCheckHandler() {
 				digitalWrite(OutPort4,LOW);
       }
       Serial.println(F("Strobe Light activated by Button!"));
-      delay(250);
+      delay(500);
 			digitalWrite(OutPort4,HIGH);
       break;
     case 4:							//Button 4 turns off all lights
@@ -403,19 +421,19 @@ int buttonCheckHandler() {
 				digitalWrite(OutPort4,LOW);
 				Serial.println(F("Gate Open Detected!"));
 			}
-
 			gateStatus = 1;
 			break;
 		case 6:			//Gate has been just been closed
 			if(gateEnable == FALSE){
 				Serial.println(F("Gate Plugged in!"));
+				gateAlertSent = 1;
 			}
 			gateEnable = TRUE;
 			if(gateAlertSent){
 				gateStatus = 0;
 				gateAlertSent = 0;
+				Serial.println(F("Gate Close Detected!"));
 			}
-			Serial.println(F("Gate Close Detected!"));
 			break;
     default:
       break;
@@ -433,6 +451,15 @@ void loop(){
 		Serial.print(F("Still Ticking! Free SRAM = "));
 		Serial.println(freeMemory());
 		Serial.flush();
+		if(getSignalStatus() < 2){
+			if(signalChirp){
+				digitalWrite(OutPort0,LOW);
+				delay(200);
+				digitalWrite(OutPort0,HIGH);
+				delay(200);
+				digitalWrite(OutPort0,LOW);
+			}
+		}
 	}
 
 	//process SMS commands - start
@@ -514,19 +541,29 @@ void loop(){
 				else if(strstr(buffd,"delete") || strstr(buffd,"Delete") || strstr(buffd,"DELETE")){
 					Serial.print(F("Delete Request Received: "));
 					Serial.println(buffd);
-					if(phoneNumberSlot != 1){
+					if(phoneNumberSlot != 2){
+						strcpy(phoneNumber,rootNumber);
 						memset(tmpChar,0x00,sizeof(tmpChar));
 						sprintf(tmpChar,"+CPBW=%i",phoneNumberSlot);
 						sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 						clearagsmSerial();
 						memset(tmpChar,0x00,sizeof(tmpChar));
 						sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"ROOT\"\r",rootNumber);
-						strcpy(phoneNumber,rootNumber);
 						sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 						clearagsmSerial();
 						retrieveMessageFromFlash(FS(deleteTXT),tmpChar,sizeof(tmpChar));
 					}
 					else{
+						strcpy(rootNumber,andrewNumber);
+						strcpy(phoneNumber,andrewNumber);
+						memset(tmpChar,0x00,sizeof(tmpChar));
+						sprintf(tmpChar,"+CPBW=2,\"%s\",145,\"ROOT\"\r",andrewNumber);
+						sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+						clearagsmSerial();
+						memset(tmpChar,0x00,sizeof(tmpChar));
+						sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"ROOT\"\r",andrewNumber);
+						sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+						clearagsmSerial();
 						retrieveMessageFromFlash(FS(deleteFailTXT),tmpChar,sizeof(tmpChar));
 					}
 					validMsgFlag = 1;
@@ -538,11 +575,23 @@ void loop(){
 					sprintf(tmpChar,"+CPBW=2,\"%s\",145,\"ROOT\"\r",phoneNumber);
 					sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 					clearagsmSerial();
+					memset(tmpChar,0x00,sizeof(tmpChar));
+					sprintf(tmpChar,"+CPBW=%i,\"%s\",145,\"AUTH\"\r",phoneNumberSlot,phoneNumber);
+					sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+					clearagsmSerial();
 					retrieveMessageFromFlash(FS(rootTXT),tmpChar,sizeof(tmpChar));
 					validMsgFlag = 1;
 				}
+				else if(strstr(buffd,"signal") || strstr(buffd,"Signal") || strstr(buffd,"SIGNAL"))
+				{
+					signalChirp = (signalChirp == 0) ? 1 : 0;
+					Serial.print(F("Signal Request Received: "));
+					Serial.println(buffd);
+					retrieveMessageFromFlash(FS(signalTXT),tmpChar,sizeof(tmpChar));
+					validMsgFlag = 1;
+				}
 			}
-			if(senderAuth == 2){			//Entirely new Phone Number detected
+			if(senderAuth == 2 && validMsgFlag == 0){			//Entirely new Phone Number detected
 				Serial.print(F("New Phone Number detected: "));
 		    Serial.println(incomingNumber);
 				memset(tmpChar,0x00,sizeof(tmpChar));
@@ -553,7 +602,7 @@ void loop(){
 				retrieveMessageFromFlash(FS(welcomeTXT),tmpChar,sizeof(tmpChar));
 				validMsgFlag = 1;
 				}
-			if(senderAuth == 3){			//RECORDED but Unpaired Phone Number detected
+			if(senderAuth == 3 && validMsgFlag == 0){			//RECORDED but Unpaired Phone Number detected
 				Serial.print(F("Recorded Number detected: "));
 		    Serial.println(incomingNumber);
 				if(strstr(buffd,"1234")){
@@ -564,10 +613,6 @@ void loop(){
 					sprintf(tmpChar,"+CPBW=%i,\"%s\",145,\"PAIRED\"\r",phoneNumberSlot,phoneNumber);
 					sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 					clearagsmSerial();
-					memset(tmpChar,0x00,sizeof(tmpChar));
-					sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"PAIRED\"\r",phoneNumber);
-					sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
-					clearagsmSerial();
 					retrieveMessageFromFlash(FS(pairedTXT),tmpChar,sizeof(tmpChar));
 					validMsgFlag = 1;
 				}
@@ -576,7 +621,7 @@ void loop(){
 					validMsgFlag = 1;
 				}
 			}
-			if(senderAuth == 4){			//Paired Number detected
+			if(senderAuth == 4 && validMsgFlag == 0){			//Paired Number detected
 				Serial.print(F("Paired Number Detected: "));
 		    Serial.println(phoneNumber);
 				if(strstr(buffd,"REGISTER") || strstr(buffd,"Register") || strstr(buffd,"register")){
@@ -594,7 +639,7 @@ void loop(){
 					validMsgFlag = 1;
 				}
 			}
-			if(senderAuth == 5){			//Registered Number detected
+			if(senderAuth == 5 && validMsgFlag == 0){			//Registered Number detected
 				Serial.print(F("Registered Number Detected: "));
 		    Serial.println(incomingNumber);
 				if(strstr(buffd,"NEXT") || strstr(buffd,"Next") || strstr(buffd,"next")){
@@ -610,7 +655,7 @@ void loop(){
 					validMsgFlag = 1;
 				}
 			}
-			if(senderAuth == 8){			//Bad SMS Content
+			if(senderAuth == 8 && validMsgFlag == 0){			//Bad SMS Content
 				Serial.println(F("SMS Fuckup. Dumping ALL Messages."));
 				retrieveMessageFromFlash(FS(failTXT),tmpChar,sizeof(tmpChar));
 				validMsgFlag = 1;
@@ -618,7 +663,7 @@ void loop(){
 			}
 			if(!validMsgFlag) retrieveMessageFromFlash(FS(supportTXT),tmpChar,sizeof(tmpChar));
 			procRespose(tmpChar,incomingNumber);
-			Serial.println(tmpChar);
+			//Serial.println(tmpChar);
 			Serial.flush();
 			deleteSMS(cnt);													//free the SMS location
 		}

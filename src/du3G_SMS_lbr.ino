@@ -190,8 +190,10 @@ int listSMS(){
 	while(res!=1){
 		//fATcmd(F("+CMGL=\"REC UNREAD\",1"),10, "OK","+CMS ERROR:");
 		res = fATcmd(F("+CPMS?"),10, "OK","+CMS ERROR:");//+CPMS: "SM",8,50,"SM",8,50,"SM",8,50// +CMS ERROR:
-		if(j++ > 3)
-			resetMODEM();
+		if(j++ > 3){
+			Serial.println(F("List SMS timeout! Shitty Signal? Rebooting Modem..."));
+			restartMODEM();
+		}
 	}
 
 	j=0;
