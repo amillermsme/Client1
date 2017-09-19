@@ -2,6 +2,7 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <MemoryFree.h>
+#include <EEPROM.h>
 
 /*
 ​SMS_RELAY_controller_light.ino v 0.3/20160205 - c-uGSM shield v 1.13 /d-u3G shield 1.13 SOFTAWARE EXAMPLE
@@ -50,6 +51,21 @@ const char andrewNumber[16] = "+18319053945";      //Andrew's number
 #endif
 
 #define FS(x) (__FlashStringHelper*)(x)
+
+#define NUMBERENTRY_ROOT 			0
+#define NUMBERENTRY_ACTIVE 		16
+#define phoneNumAddress(x) 		32+16*x
+#define authStatusAddress(x)	32+16*x+13
+#define isActiveAddress(x)		32+16*x+14
+
+#define STATUS_ROOT 			1
+#define STATUS_UNKNOWN 		2
+#define STATUS_RECORDED 	3
+#define STATUS_PAIRED 		4
+#define STATUS_REGISTERED 5
+#define STATUS_AUTH 			6
+
+
 
 const char testTXT[] PROGMEM = "This is a test string in FLASH memory.";
 const char welcomeTXT[] PROGMEM = "WELCOME TO LIFE LITE\nPlease text back your registration number to pair your phone with your Life Lite.";
@@ -207,11 +223,58 @@ void setup(){
 	//Check Gate state
 	if(digitalRead(InPort5) == LOW) gateEnable = TRUE;
 
+	/*Serial.println(F("Attempting to write to EEPROM position 0..."));
+	if(writeNumberToEEPROM(phoneNumAddress(NUMBERENTRY_ROOT),andrewNumber,sizeof(andrewNumber)) == 1){
+		Serial.println(F("Write to EEPROM position 0 complete."));
+	}
+	else while(1);
+
+	Serial.println(F("Write to EEPROM position 0 complete.\nNow attempting to Read..."));
+	if(retrieveNumberFromEEPROM(phoneNumAddress(NUMBERENTRY_ROOT),tmpChar,sizeof(tmpChar)) == 1){
+		Serial.print(F("Read EEPROM position 0 complete: "));
+		Serial.println(tmpChar);
+	}
+	else while(1);
+
+	while(1);*/
+
 	digitalWrite(OutPort2, HIGH);
 	delay(200);
 	digitalWrite(OutPort2, LOW);
 }
-
+//Writes a Phone Number to EEPROM
+int writeNumberToEEPROM(int addressEEPROM, char* buffer, size_t buffersize){
+	if(!strstr(buffer,"+1")){
+		Serial.print("EEPROM phone number write fail! Bad Number: ");
+		Serial.println(buffer);
+		return 2;
+	}
+	for(int i = 0; i < 12; i++){
+		if((char)buffer[i] == "\0"){
+			Serial.print("EEPROM phone number write fail! Too Short: ");
+			Serial.println(buffer);
+			return 3;
+		}
+		EEPROM.write(addressEEPROM+i,(int)buffer[i]);
+	}
+}
+//Reads a Phone Number from EEPROM
+int retrieveNumberFromEEPROM(int addressEEPROM, char* buffer, size_t buffersize){
+	memset(buffer,0x00, buffersize);
+	for(int i = 0; i < 12; i++){
+		if((char)buffer[i] == "\0"){
+			Serial.print("EEPROM phone number retrieve fail! Too Short: ");
+			Serial.println(buffer);
+			return 3;
+		}
+		buffer[i] = (char)EEPROM.read(addressEEPROM+i);
+	}
+	if(!strstr(buffer,"+1")){
+		Serial.print("EEPROM phone number retrieve fail! Bad Number: ");
+		Serial.println(buffer);
+		return 2;
+	}
+}
 // retrieves a message stored in flash memeory.
 void retrieveMessageFromFlash(const __FlashStringHelper* message, char* buffer, size_t buffersize){
 	const char PROGMEM *p = (const char PROGMEM *)message;
@@ -306,6 +369,11 @@ int checkSMSAuthNo(int SMSindex, char *incomingNumber, int *phoneNumberSlot){
 	else{
 		Serial.print(F("New Phone Number Saved in Phonebook Location "));
 		Serial.println(*phoneNumberSlot);
+		memset(tmpChar,0x00,sizeof(tmpChar));
+		sprintf(tmpChar,"+CPBW=%i,\"%s\",145,\"UNKNOWN\"\r",phoneNumberSlot,incomingNumber);
+		sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+		nextPhonebookEntry++;
+		clearagsmSerial();
 	}
 	Serial.print(F("Incoming Authorization Status: "));
 	Serial.println(authStatus);
@@ -317,10 +385,11 @@ int checkSMSAuthNo(int SMSindex, char *incomingNumber, int *phoneNumberSlot){
 	ret = (strstr(authStatus,"AUTH")) ? 6 : ret;					//Registered.
 
 	memset(tmpChar,0x00,sizeof(tmpChar));
-	if(ret == 1) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"ROOT\"\r",andrewNumber);
-	if(ret == 4) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"PAIRED\"\r",andrewNumber);
-	if(ret == 5) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"REGISTERED\"\r",andrewNumber);
-	if(ret == 6) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"AUTH\"\r",andrewNumber);
+	if(ret == 1) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"ROOT\"\r",incomingNumber);
+	if(ret == 4) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"PAIRED\"\r",incomingNumber);
+	if(ret == 5) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"REGISTERED\"\r",incomingNumber);
+	if(ret == 6) sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"AUTH\"\r",incomingNumber);
+
 	sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 	clearagsmSerial();
 
@@ -341,7 +410,7 @@ int buttonCheckHandler() {
   ButtonFlag = (analogRead(Button2) < 500) ? 1 : ButtonFlag;
   ButtonFlag = (analogRead(Button3) < 500) ? 4 : ButtonFlag;
   ButtonFlag = (analogRead(Button4) < 500) ? 3 : ButtonFlag;
-	
+
 	if(ButtonFlag){			//DEBUG: Serial Comm of Button Content
 		Serial.print(F("Button Detected, Status = "));
 		Serial.println(ButtonFlag);
@@ -592,12 +661,9 @@ void loop(){
 				}
 			}
 			if(senderAuth == 2 && validMsgFlag == 0){			//Entirely new Phone Number detected
-				Serial.print(F("New Phone Number detected: "));
-		    Serial.println(incomingNumber);
 				memset(tmpChar,0x00,sizeof(tmpChar));
 				sprintf(tmpChar,"+CPBW=%i,\"%s\",145,\"RECORDED\"\r",phoneNumberSlot,incomingNumber);
 				sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
-				nextPhonebookEntry++;
 				clearagsmSerial();
 				retrieveMessageFromFlash(FS(welcomeTXT),tmpChar,sizeof(tmpChar));
 				validMsgFlag = 1;
@@ -611,6 +677,10 @@ void loop(){
 					strcpy(phoneNumber,incomingNumber);
 					memset(tmpChar,0x00,sizeof(tmpChar));
 					sprintf(tmpChar,"+CPBW=%i,\"%s\",145,\"PAIRED\"\r",phoneNumberSlot,phoneNumber);
+					sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
+					clearagsmSerial();
+					memset(tmpChar,0x00,sizeof(tmpChar));
+					sprintf(tmpChar,"+CPBW=1,\"%s\",145,\"PAIRED\"\r",phoneNumber);
 					sendATcommand(tmpChar,"OK","ERROR",3);//send command to modem
 					clearagsmSerial();
 					retrieveMessageFromFlash(FS(pairedTXT),tmpChar,sizeof(tmpChar));
